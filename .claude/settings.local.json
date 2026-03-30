@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/kimmini/my-project/backend -name *.java)"
+    ]
+  }
+}
