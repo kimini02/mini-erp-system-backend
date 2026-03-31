@@ -142,6 +142,7 @@ public class Project extends BaseEntity {
 | **id** | `Long` | `project_id` | PK, NOT NULL, AUTO_INCREMENT | 프로젝트 식별자 | 시스템 자동 생성 |
 | **title** | `String` | `title` | NOT NULL, LENGTH(100) | 프로젝트 명칭 | 필수 입력 |
 | **content** | `String` | `content` | LENGTH(1000) | 프로젝트 내용 | 프로젝트 상세 설명 |
+| **projectType** | `ProjectType` | `project_type` | NOT NULL, ENUM | 프로젝트 유형 | GROUPWARE, ERP, MOBILE |
 | **startDate** | `LocalDate` | `start_date` | NOT NULL | 시작 일자 |필수 입력 |
 | **endDate** | `LocalDate` | `end_date` | NOT NULL | 종료 일자 | 시작일 이후여야 함 |
 | **status** | `ProjectStatus` | `status` | NOT NULL, ENUM | 진행 상태| READY, PROGRESS, DONE, HOLD |
@@ -164,6 +165,10 @@ public class Project extends BaseEntity {
 
     @Column(length = 1000)
     private String content;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "project_type", nullable = false)
+    private ProjectType projectType;
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;

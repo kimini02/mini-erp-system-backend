@@ -353,9 +353,9 @@ Request Body:
 {
   "title": "ERP 재구축",
   "content": "사내 업무 시스템 고도화",
+  "projectType": "ERP",
   "startDate": "2026-03-28",
-  "endDate": "2026-04-30",
-  "status": "READY"
+  "endDate": "2026-04-30"
 }
 
 Response (201 Created):
@@ -364,6 +364,7 @@ Response (201 Created):
   "data": {
     "projectId": 101,
     "title": "ERP 재구축",
+    "projectType": "ERP",
     "status": "READY"
   },
   "message": "프로젝트가 생성되었습니다"
@@ -390,6 +391,7 @@ Response (200 OK):
       {
         "projectId": 101,
         "title": "ERP 재구축",
+        "projectType": "ERP",
         "status": "PROGRESS",
         "startDate": "2026-03-28",
         "endDate": "2026-04-30"
