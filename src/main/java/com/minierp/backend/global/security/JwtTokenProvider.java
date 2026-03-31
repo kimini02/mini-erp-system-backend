@@ -51,12 +51,17 @@ public class JwtTokenProvider {
         Claims claims = getClaims(token);
         String role = claims.get(ROLE_CLAIM_KEY, String.class);
 
-        SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+        String normalizedRole = role == null ? "USER" : role;
+        SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + normalizedRole);
         return new UsernamePasswordAuthenticationToken(
                 claims.getSubject(),
                 token,
                 Collections.singletonList(authority)
         );
+    }
+
+    public long getAccessTokenExpirationSeconds() {
+        return accessTokenExpirationMs / 1000;
     }
 
     public String getSubject(String token) {
