@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -24,7 +25,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(errorCode, e.getMessage()));
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class, ConstraintViolationException.class, IllegalArgumentException.class})
+    @ExceptionHandler({
+            MethodArgumentNotValidException.class,
+            BindException.class,
+            ConstraintViolationException.class,
+            IllegalArgumentException.class,
+            MissingServletRequestParameterException.class
+    })
     public ResponseEntity<ErrorResponse> handleBadRequest(Exception e) {
         ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
         return ResponseEntity
@@ -70,6 +77,10 @@ public class GlobalExceptionHandler {
         if (e instanceof BindException bindException) {
             FieldError fieldError = bindException.getBindingResult().getFieldError();
             return fieldError != null ? fieldError.getDefaultMessage() : ErrorCode.INVALID_INPUT_VALUE.getMessage();
+        }
+
+        if (e instanceof MissingServletRequestParameterException missingServletRequestParameterException) {
+            return missingServletRequestParameterException.getParameterName() + " 파라미터는 필수입니다.";
         }
 
         return e.getMessage() == null ? ErrorCode.INVALID_INPUT_VALUE.getMessage() : e.getMessage();
