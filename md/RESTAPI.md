@@ -115,8 +115,11 @@ Authorization: Bearer {ACCESS_TOKEN}
 #### 에러 응답
 ```json
 {
-  "statusCode": "400",
-  "message": "입력값이 유효하지 않습니다",
+  "success": false,
+  "error": {
+    "code": "INVALID_INPUT_VALUE",
+    "message": "입력값이 유효하지 않습니다"
+  },
   "timestamp": "2026-03-28T10:30:00Z"
 }
 ```
@@ -134,7 +137,7 @@ Content-Type: application/json
 
 Request Body:
 {
-  "email": "user@company.com",
+  "id": "testuser01",
   "password": "Password123!"
 }
 
@@ -153,7 +156,8 @@ Response (200 OK):
       "role": "USER"
     }
   },
-  "message": "로그인이 성공하였습니다"
+  "message": "로그인이 성공하였습니다",
+  "timestamp": "2026-03-31T10:03:18.8324988"
 }
 
 Response (401 Unauthorized):
@@ -161,8 +165,9 @@ Response (401 Unauthorized):
   "success": false,
   "error": {
     "code": "INVALID_CREDENTIALS",
-    "message": "이메일 또는 비밀번호가 올바르지 않습니다"
-  }
+    "message": "아이디 또는 비밀번호가 올바르지 않습니다"
+  },
+  "timestamp": "2026-03-31T10:03:18.8324988"
 }
 ```
 
@@ -264,6 +269,7 @@ Public API
 
 Request Body:
 {
+  "id": "testuser01",
   "name": "김철수",
   "email": "kim@company.com",
   "password": "Password123!",
@@ -271,6 +277,7 @@ Request Body:
 }
 
 Validation Rules:
+- id: 필수, 4-20자, 중복 불가
 - name: 필수, 2-50자
 - email: 필수, 이메일 형식, 중복 불가
 - password: 필수, 8-20자
@@ -286,7 +293,28 @@ Response (201 Created):
     "position": "사원",
     "role": "USER"
   },
-  "message": "회원가입이 완료되었습니다"
+  "message": "회원가입이 완료되었습니다",
+  "timestamp": "2026-03-31T10:03:18.8324988"
+}
+
+Response (409 Conflict):
+{
+  "success": false,
+  "error": {
+    "code": "LOGIN_ID_ALREADY_EXISTS",
+    "message": "이미 사용 중인 아이디입니다."
+  },
+  "timestamp": "2026-03-31T10:03:18.8324988"
+}
+
+Response (409 Conflict):
+{
+  "success": false,
+  "error": {
+    "code": "EMAIL_ALREADY_EXISTS",
+    "message": "이미 사용 중인 이메일입니다."
+  },
+  "timestamp": "2026-03-31T10:03:18.8324988"
 }
 ```
 
@@ -979,13 +1007,15 @@ Response (200 OK):
 ### 5.1 표준 에러 코드 정의
 | 코드 | HTTP 상태 | 설명 | 해결 방법 |
 |------|-----------|------|-----------|
-| **VALIDATION_ERROR** | 400 | 입력값 검증 실패 | 요청 데이터 확인 후 재시도 |
-| **INVALID_CREDENTIALS** | 401 | 인증 정보 오류 | 로그인 정보 확인 |
-| **TOKEN_EXPIRED** | 401 | 토큰 만료 | 재로그인 |
+| **INVALID_INPUT_VALUE** | 400 | 입력값 검증 실패 | 요청 데이터 확인 후 재시도 |
+| **LOGIN_ID_ALREADY_EXISTS** | 409 | 아이디 중복 | 다른 아이디 사용 |
+| **EMAIL_ALREADY_EXISTS** | 409 | 이메일 중복 | 다른 이메일 사용 |
+| **INVALID_CREDENTIALS** | 401 | 로그인 인증 실패 | 아이디/비밀번호 확인 |
+| **UNAUTHORIZED** | 401 | 인증 필요 | 토큰 포함 후 재요청 |
 | **ACCESS_DENIED** | 403 | 권한 없음 | 권한 확인 또는 관리자 문의 |
 | **RESOURCE_NOT_FOUND** | 404 | 리소스 없음 | 요청 URL 및 ID 확인 |
-| **DUPLICATE_RESOURCE** | 409 | 중복 생성 시도 | 기존 리소스 확인 |
-| **BUSINESS_RULE_VIOLATION** | 422 | 비즈니스 규칙 위반 | 규칙 확인 후 조건 충족 |
+| **DUPLICATE_RESOURCE** | 409 | 리소스 중복 생성 | 기존 리소스 확인 |
+| **INVALID_TOKEN** | 401 | 유효하지 않은 토큰 | 재로그인 후 토큰 갱신 |
 | **INTERNAL_SERVER_ERROR** | 500 | 서버 내부 오류 | 관리자 문의 |
 
 ### 5.2 비즈니스 로직 에러 코드
