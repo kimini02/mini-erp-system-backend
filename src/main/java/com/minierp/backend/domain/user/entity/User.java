@@ -82,4 +82,8 @@ public class User extends BaseEntity {
     public boolean passwordMatches(String encodedPassword) {
         return userPw.equals(encodedPassword);
     }
+
+    public void updatePassword(String newEncodedPassword) {
+        this.userPw = newEncodedPassword;
+    }
 }
