@@ -1,6 +1,7 @@
 package com.minierp.backend.domain.task.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.minierp.backend.domain.task.entity.TaskPriority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -25,16 +26,14 @@ public class TaskCreateRequestDto {
     @NotBlank(message = "업무 내용은 필수입니다.")
     private String taskContent;
 
-    @NotNull(message = "업무 시작일은 필수입니다.")
-    private LocalDate startDate;
-
     @NotNull(message = "업무 종료일은 필수입니다.")
     private LocalDate endDate;
 
     @JsonProperty("taskState")
     private TaskStatus taskStatus;
 
-    private String taskNo;
+    @NotNull(message = "우선순위는 필수입니다.")
+    private TaskPriority priority;
 
     @NotEmpty(message = "담당자 ID 목록은 비어 있을 수 없습니다.")
     private List<Long> assigneeIds;
@@ -43,20 +42,18 @@ public class TaskCreateRequestDto {
             Long projectId,
             String taskTitle,
             String taskContent,
-            LocalDate startDate,
             LocalDate endDate,
             TaskStatus taskStatus,
-            String taskNo,
+            TaskPriority priority,
             List<Long> assigneeIds
     ) {
         TaskCreateRequestDto dto = new TaskCreateRequestDto();
         dto.projectId = projectId;
         dto.taskTitle = taskTitle;
         dto.taskContent = taskContent;
-        dto.startDate = startDate;
         dto.endDate = endDate;
         dto.taskStatus = taskStatus;
-        dto.taskNo = taskNo;
+        dto.priority = priority;
         dto.assigneeIds = assigneeIds;
         return dto;
     }

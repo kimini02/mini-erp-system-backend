@@ -1,15 +1,12 @@
 package com.minierp.backend.domain.task.entity;
 
 import com.minierp.backend.domain.project.entity.Project;
-import com.minierp.backend.global.exception.BusinessException;
-import com.minierp.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TaskTest {
 
@@ -21,39 +18,18 @@ class TaskTest {
         Task task = Task.create(
                 "내 업무 화면 구현",
                 "React 페이지 및 API 연동",
-                LocalDate.of(2026, 3, 31),
                 LocalDate.of(2026, 4, 2),
                 null,
-                "TASK-2026-001",
+                TaskPriority.HIGH,
                 project
         );
 
         assertThat(task.getTaskTitle()).isEqualTo("내 업무 화면 구현");
         assertThat(task.getTaskContent()).isEqualTo("React 페이지 및 API 연동");
-        assertThat(task.getStartDate()).isEqualTo(LocalDate.of(2026, 3, 31));
         assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 4, 2));
         assertThat(task.getTaskStatus()).isEqualTo(TaskStatus.TODO);
-        assertThat(task.getTaskNo()).isEqualTo("TASK-2026-001");
+        assertThat(task.getPriority()).isEqualTo(TaskPriority.HIGH);
         assertThat(task.getProject()).isSameAs(project);
-    }
-
-    @Test
-    @DisplayName("업무 생성 시 종료일이 시작일보다 빠르면 예외가 발생한다")
-    void createTask_invalidPeriod_throwsException() {
-        Project project = createProject();
-
-        assertThatThrownBy(() -> Task.create(
-                "내 업무 화면 구현",
-                "React 페이지 및 API 연동",
-                LocalDate.of(2026, 4, 2),
-                LocalDate.of(2026, 3, 31),
-                TaskStatus.TODO,
-                "TASK-2026-001",
-                project
-        ))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
-                        .isEqualTo(ErrorCode.INVALID_TASK_PERIOD));
     }
 
     @Test
@@ -62,10 +38,9 @@ class TaskTest {
         Task task = Task.create(
                 "내 업무 화면 구현",
                 "React 페이지 및 API 연동",
-                LocalDate.of(2026, 3, 31),
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                "TASK-2026-001",
+                TaskPriority.MEDIUM,
                 createProject()
         );
 
@@ -80,10 +55,9 @@ class TaskTest {
         Task task = Task.create(
                 "내 업무 화면 구현",
                 "React 페이지 및 API 연동",
-                LocalDate.now().minusDays(3),
                 LocalDate.now().minusDays(1),
                 TaskStatus.DOING,
-                "TASK-2026-001",
+                TaskPriority.LOW,
                 createProject()
         );
 

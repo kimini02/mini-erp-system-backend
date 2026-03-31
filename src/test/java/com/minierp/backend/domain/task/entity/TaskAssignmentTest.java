@@ -18,10 +18,9 @@ class TaskAssignmentTest {
         Task task = Task.create(
                 "내 업무 화면 구현",
                 "React 페이지 및 API 연동",
-                LocalDate.of(2026, 3, 31),
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                "TASK-2026-001",
+                TaskPriority.MEDIUM,
                 Project.create(
                         "ERP 재구축",
                         "사내 업무 시스템 고도화",

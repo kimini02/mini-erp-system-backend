@@ -2,8 +2,6 @@ package com.minierp.backend.domain.task.entity;
 
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.global.entity.BaseEntity;
-import com.minierp.backend.global.exception.BusinessException;
-import com.minierp.backend.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -25,9 +23,6 @@ public class Task extends BaseEntity {
     @Column(name = "task_content", nullable = false, length = 1000)
     private String taskContent;
 
-    @Column(name = "start_date", nullable = false)
-    private LocalDate startDate;
-
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
@@ -35,8 +30,9 @@ public class Task extends BaseEntity {
     @Column(name = "task_status", nullable = false)
     private TaskStatus taskStatus;
 
-    @Column(name = "task_no", length = 50)
-    private String taskNo;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TaskPriority priority;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
@@ -48,21 +44,18 @@ public class Task extends BaseEntity {
     public static Task create(
             String taskTitle,
             String taskContent,
-            LocalDate startDate,
             LocalDate endDate,
             TaskStatus taskStatus,
-            String taskNo,
+            TaskPriority priority,
             Project project
     ) {
         Task task = new Task();
         task.taskTitle = taskTitle;
         task.taskContent = taskContent;
-        task.startDate = startDate;
         task.endDate = endDate;
         task.taskStatus = taskStatus == null ? TaskStatus.TODO : taskStatus;
-        task.taskNo = taskNo;
+        task.priority = priority;
         task.project = project;
-        task.validatePeriod();
         return task;
     }
 
@@ -76,13 +69,5 @@ public class Task extends BaseEntity {
 
     void addTaskAssignment(TaskAssignment taskAssignment) {
         taskAssignments.add(taskAssignment);
-    }
-
-    @PrePersist
-    @PreUpdate
-    private void validatePeriod() {
-        if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
-            throw new BusinessException(ErrorCode.INVALID_TASK_PERIOD);
-        }
     }
 }

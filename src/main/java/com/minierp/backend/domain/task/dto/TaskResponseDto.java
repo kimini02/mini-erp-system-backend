@@ -3,6 +3,7 @@ package com.minierp.backend.domain.task.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
+import com.minierp.backend.domain.task.entity.TaskPriority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -23,9 +24,8 @@ public class TaskResponseDto {
     @JsonProperty("taskState")
     private TaskStatus taskStatus;
 
-    private LocalDate startDate;
+    private TaskPriority priority;
     private LocalDate endDate;
-    private String taskNo;
     private List<AssigneeSummaryDto> assignees;
 
     public static TaskResponseDto from(Task task) {
@@ -35,9 +35,8 @@ public class TaskResponseDto {
                 task.getTaskTitle(),
                 task.getTaskContent(),
                 task.getTaskStatus(),
-                task.getStartDate(),
+                task.getPriority(),
                 task.getEndDate(),
-                task.getTaskNo(),
                 task.getTaskAssignments().stream()
                         .map(AssigneeSummaryDto::from)
                         .toList()
@@ -49,9 +48,13 @@ public class TaskResponseDto {
     public static class AssigneeSummaryDto {
 
         private Long id;
+        private String userName;
 
         public static AssigneeSummaryDto from(TaskAssignment taskAssignment) {
-            return new AssigneeSummaryDto(taskAssignment.getUser().getId());
+            return new AssigneeSummaryDto(
+                    taskAssignment.getUser().getId(),
+                    taskAssignment.getUser().getUserName()
+            );
         }
     }
 }
