@@ -41,7 +41,12 @@ public class Project extends BaseEntity {
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProjectMember> projectMembers = new ArrayList<>();
 
-    public static Project create(String title, String content, LocalDate startDate, LocalDate endDate) {
+    public static Project create(
+            String title,
+            String content,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
         Project project = new Project();
         project.title = title;
         project.content = content;

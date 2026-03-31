@@ -23,7 +23,12 @@ public class ProjectCreateRequestDto {
     @NotNull(message = "프로젝트 종료일은 필수입니다.")
     private LocalDate endDate;
 
-    public static ProjectCreateRequestDto of(String title, String content, LocalDate startDate, LocalDate endDate) {
+    public static ProjectCreateRequestDto of(
+            String title,
+            String content,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
         ProjectCreateRequestDto dto = new ProjectCreateRequestDto();
         dto.title = title;
         dto.content = content;

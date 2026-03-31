@@ -9,6 +9,7 @@ import com.minierp.backend.domain.project.entity.ProjectMember;
 import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.entity.Task;
+import com.minierp.backend.domain.task.entity.TaskPriority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import com.minierp.backend.domain.task.repository.TaskRepository;
 import com.minierp.backend.domain.user.entity.User;
@@ -287,10 +288,9 @@ class ProjectServiceTest {
         Task task = Task.create(
                 "업무 제목",
                 "업무 내용",
-                LocalDate.of(2026, 3, 31),
                 LocalDate.of(2026, 4, 2),
                 taskStatus,
-                "TASK-001",
+                TaskPriority.MEDIUM,
                 project
         );
         ReflectionTestUtils.setField(task, "id", id);
