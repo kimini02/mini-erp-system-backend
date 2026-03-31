@@ -70,6 +70,15 @@ public class User extends BaseEntity {
         return new User(userName, loginId, userEmail, encodedPassword, positionName, UserRole.USER);
     }
 
+    public void updateProfile(String userName, String positionName) {
+        this.userName = userName;
+        this.positionName = positionName;
+    }
+
+    public void changeRole(UserRole userRole) {
+        this.userRole = userRole;
+    }
+
     public boolean passwordMatches(String encodedPassword) {
         return userPw.equals(encodedPassword);
     }
