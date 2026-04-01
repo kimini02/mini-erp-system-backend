@@ -15,7 +15,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("select distinct ta.task from TaskAssignment ta where ta.user.id = :userId")
     List<Task> findByAssigneeUserId(@Param("userId") Long userId);
 
+    long countByTaskStatus(TaskStatus taskStatus);
+
     long countByProjectId(Long projectId);
 
     long countByProjectIdAndTaskStatus(Long projectId, TaskStatus taskStatus);
+
+    long countByProjectIdIn(List<Long> projectIds);
+
+    long countByProjectIdInAndTaskStatus(List<Long> projectIds, TaskStatus taskStatus);
 }

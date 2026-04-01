@@ -10,5 +10,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByStatus(ProjectStatus status);
 
+    List<Project> findByLeaderId(Long leaderId);
+
+    long countByLeaderId(Long leaderId);
+
     long countByStatus(ProjectStatus status);
 }

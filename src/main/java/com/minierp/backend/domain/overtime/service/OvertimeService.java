@@ -1,0 +1,176 @@
+package com.minierp.backend.domain.overtime.service;
+
+import com.minierp.backend.domain.overtime.dto.OvertimeRequestDto;
+import com.minierp.backend.domain.overtime.dto.OvertimeResponseDto;
+import com.minierp.backend.domain.overtime.entity.OvertimeRequest;
+import com.minierp.backend.domain.overtime.repository.OvertimeRequestRepository;
+import com.minierp.backend.domain.user.entity.User;
+import com.minierp.backend.domain.user.entity.UserRole;
+import com.minierp.backend.domain.user.repository.UserRepository;
+import com.minierp.backend.global.exception.BusinessException;
+import com.minierp.backend.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class OvertimeService {
+
+    private final OvertimeRequestRepository overtimeRequestRepository;
+    private final UserRepository userRepository;
+
+    /**
+     * 특근 신청
+     */
+    @Transactional
+    public OvertimeResponseDto requestOvertime(OvertimeRequestDto dto, String requesterLoginId) {
+        // 방어 코드: 시작 시간이 종료 시간보다 늦을 경우
+        if (dto.getEndTime().isBefore(dto.getStartTime())) {
+            throw new BusinessException(ErrorCode.INVALID_OVERTIME_TIME);
+        }
+
+        if (!isWeekend(dto.getOvertimeDate())) {
+            throw new BusinessException(ErrorCode.INVALID_OVERTIME_DATE);
+        }
+
+        User requester = getUserByLoginId(requesterLoginId);
+
+        OvertimeRequest request = OvertimeRequest.builder()
+                .requester(requester)
+                .overtimeDate(dto.getOvertimeDate())
+                .startTime(dto.getStartTime())
+                .endTime(dto.getEndTime())
+                .reason(dto.getReason())
+                .build();
+
+        return OvertimeResponseDto.from(overtimeRequestRepository.save(request));
+    }
+
+    /**
+     * 특근 단건 조회 (권한 방어)
+     * - USER: 본인 건만 조회
+     * - TEAM_LEADER/ADMIN: 전체 조회 가능
+     */
+    public OvertimeResponseDto getOvertimeRequest(Long requestId, String accessorLoginId) {
+        OvertimeRequest request = getRequestOrThrow(requestId);
+        User accessor = getUserByLoginId(accessorLoginId);
+
+        if (accessor.getUserRole().isGeneralUser() && !request.getRequester().getId().equals(accessor.getId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "본인 특근 신청 건만 조회할 수 있습니다.");
+        }
+
+        return OvertimeResponseDto.from(request);
+    }
+
+    /**
+     * 특근 승인
+     */
+    @Transactional
+    public OvertimeResponseDto approveOvertime(Long requestId, String approverLoginId) {
+        OvertimeRequest request = getRequestOrThrow(requestId);
+        User approver = getUserByLoginId(approverLoginId);
+
+        validateApprovalHierarchy(request.getRequester(), approver);
+        request.approve(approver);
+        return OvertimeResponseDto.from(request);
+    }
+
+    /**
+     * 특근 반려
+     */
+    @Transactional
+    public OvertimeResponseDto rejectOvertime(Long requestId, String approverLoginId) {
+        OvertimeRequest request = getRequestOrThrow(requestId);
+        User approver = getUserByLoginId(approverLoginId);
+
+        validateApprovalHierarchy(request.getRequester(), approver);
+        request.reject(approver);
+        return OvertimeResponseDto.from(request);
+    }
+
+    /**
+     * 특근 내역 조회 (권한별 필터링)
+     * - USER: 본인 내역만
+     * - TEAM_LEADER/ADMIN: 전체 내역
+     */
+    public List<OvertimeResponseDto> getOvertimeRequests(String accessorLoginId) {
+        User accessor = getUserByLoginId(accessorLoginId);
+
+        if (accessor.getUserRole().isGeneralUser()) {
+            return overtimeRequestRepository.findByRequester_Id(accessor.getId()).stream()
+                    .map(OvertimeResponseDto::from)
+                    .collect(Collectors.toList());
+        }
+
+        return overtimeRequestRepository.findAll().stream()
+                .map(OvertimeResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    // 기존 /my API 호환
+    public List<OvertimeResponseDto> getMyOvertimeRequests(String loginId) {
+        return getOvertimeRequests(loginId);
+    }
+
+    /**
+     * [Hierarchy 검증 로직]
+     * 1) requester=USER: TEAM_LEADER 또는 ADMIN 결재 가능
+     * 2) requester=TEAM_LEADER: ADMIN만 결재 가능
+     * 3) requester=ADMIN: ADMIN 본인만 결재 가능(셀프 허용)
+     */
+    private void validateApprovalHierarchy(User requester, User approver) {
+        UserRole requesterRole = requester.getUserRole();
+        UserRole approverRole = approver.getUserRole();
+
+        // 1) 일반 사원 신청: 팀장 또는 관리소장 결재 가능
+        if (requesterRole.isGeneralUser()) {
+            if (approverRole.isTeamLeader() || approverRole.isTopManager()) {
+                return;
+            }
+            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
+                    "일반 사용자 특근 신청은 팀장 또는 관리 소장만 결재할 수 있습니다.");
+        }
+
+        // 2) 팀장 신청: 관리소장만 결재 가능
+        if (requesterRole.isTeamLeader()) {
+            if (approverRole.isTopManager()) {
+                return;
+            }
+            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
+                    "팀장 특근 신청은 관리 소장만 결재할 수 있습니다.");
+        }
+
+        // 3) 관리소장 신청: 본인만 셀프 결재 가능
+        if (requesterRole.isTopManager()) {
+            if (approverRole.isTopManager() && requester.getId().equals(approver.getId())) {
+                return;
+            }
+            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
+                    "관리 소장 특근 신청은 본인만 결재할 수 있습니다.");
+        }
+
+        throw new BusinessException(ErrorCode.ACCESS_DENIED, "유효하지 않은 결재 권한입니다.");
+    }
+
+    private OvertimeRequest getRequestOrThrow(Long requestId) {
+        return overtimeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OVERTIME_NOT_FOUND));
+    }
+
+    private User getUserByLoginId(String loginId) {
+        return userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private boolean isWeekend(LocalDate date) {
+        DayOfWeek day = date.getDayOfWeek();
+        return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
+    }
+}

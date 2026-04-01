@@ -5,6 +5,7 @@ import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.dto.TaskAssignmentResponseDto;
 import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
+import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.entity.Task;
@@ -24,6 +25,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 업무(Task) 서비스
+ * - Task 생성/조회/상태변경 및 담당자(TaskAssignment) 관리
+ * - 역할별 접근 제어: ADMIN(전체), TEAM_LEADER(담당 프로젝트만), USER(배정된 Task만)
+ * - Task 상태 변경 시 프로젝트 상태도 자동 갱신
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -35,9 +42,13 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
+    // Task 생성: ADMIN 또는 담당 팀장만 가능, 배정자는 해당 프로젝트 멤버여야 함
     @Transactional
-    public TaskResponseDto createTask(TaskCreateRequestDto request, UserRole currentUserRole) {
-        validateAdminRole(currentUserRole);
+    public TaskResponseDto createTask(TaskCreateRequestDto request, Long currentUserId, UserRole currentUserRole) {
+        validateAdminOrLeaderRole(currentUserRole);
+        if (currentUserRole == UserRole.TEAM_LEADER) {
+            validateProjectLeaderForTask(request.getProjectId(), currentUserId);
+        }
         validateDuplicateAssigneeIds(request.getAssigneeIds());
 
         Project project = findProjectOrThrow(request.getProjectId());
@@ -67,6 +78,7 @@ public class TaskService {
         return TaskResponseDto.from(savedTask);
     }
 
+    // Task 목록 조회: ADMIN=전체, TEAM_LEADER=담당 프로젝트의 Task, USER=본인 배정 Task
     public List<TaskResponseDto> getTasks(Long currentUserId, UserRole currentUserRole) {
         if (currentUserRole == UserRole.ADMIN) {
             return taskRepository.findAll().stream()
@@ -76,6 +88,17 @@ public class TaskService {
 
         validateCurrentUserId(currentUserId);
 
+        if (currentUserRole == UserRole.TEAM_LEADER) {
+            List<Project> leaderProjects = projectRepository.findByLeaderId(currentUserId);
+            if (leaderProjects.isEmpty()) {
+                throw new BusinessException(ErrorCode.NO_ASSIGNED_PROJECT);
+            }
+            return leaderProjects.stream()
+                    .flatMap(project -> taskRepository.findByProjectId(project.getId()).stream())
+                    .map(TaskResponseDto::from)
+                    .toList();
+        }
+
         return taskRepository.findByAssigneeUserId(currentUserId).stream()
                 .map(TaskResponseDto::from)
                 .toList();
@@ -83,10 +106,11 @@ public class TaskService {
 
     public TaskResponseDto getTask(Long taskId, Long currentUserId, UserRole currentUserRole) {
         Task task = findTaskOrThrow(taskId);
-        validateTaskAccess(taskId, currentUserId, currentUserRole);
+        validateTaskAccess(task, currentUserId, currentUserRole);
         return TaskResponseDto.from(task);
     }
 
+    // Task 상태 변경 + 프로젝트 상태 자동 갱신 (READY→PROGRESS→DONE)
     @Transactional
     public TaskResponseDto changeTaskStatus(
             Long taskId,
@@ -95,16 +119,34 @@ public class TaskService {
             TaskStatusUpdateDto request
     ) {
         Task task = findTaskOrThrow(taskId);
-        validateTaskAccess(taskId, currentUserId, currentUserRole);
-        task.changeStatus(request.getTaskStatus());
+        if (currentUserRole == UserRole.ADMIN) {
+            task.changeStatus(request.getTaskStatus());
+        } else if (currentUserRole == UserRole.TEAM_LEADER) {
+            validateProjectLeaderForTask(task.getProject().getId(), currentUserId);
+            task.changeStatus(request.getTaskStatus());
+        } else {
+            validateTaskAccess(task, currentUserId, currentUserRole);
+            task.changeStatus(request.getTaskStatus());
+        }
+
+        // Task 상태가 바뀌면 프로젝트 상태도 자동으로 갱신
+        task.getProject().updateStatusByTasks();
         return TaskResponseDto.from(task);
     }
 
     @Transactional
-    public TaskAssignmentResponseDto addAssignment(Long taskId, Long userId, UserRole currentUserRole) {
-        validateAdminRole(currentUserRole);
+    public TaskAssignmentResponseDto addAssignment(
+            Long taskId,
+            Long userId,
+            Long currentUserId,
+            UserRole currentUserRole
+    ) {
+        validateAdminOrLeaderRole(currentUserRole);
 
         Task task = findTaskOrThrow(taskId);
+        if (currentUserRole == UserRole.TEAM_LEADER) {
+            validateProjectLeaderForTask(task.getProject().getId(), currentUserId);
+        }
         User user = findUserOrThrow(userId);
 
         if (taskAssignmentRepository.existsByTaskIdAndUserId(taskId, userId)) {
@@ -123,8 +165,8 @@ public class TaskService {
     }
 
     public List<TaskAssignmentResponseDto> getAssignments(Long taskId, Long currentUserId, UserRole currentUserRole) {
-        findTaskOrThrow(taskId);
-        validateTaskAccess(taskId, currentUserId, currentUserRole);
+        Task task = findTaskOrThrow(taskId);
+        validateTaskAccess(task, currentUserId, currentUserRole);
 
         return taskAssignmentRepository.findByTaskId(taskId).stream()
                 .map(TaskAssignmentResponseDto::from)
@@ -132,10 +174,13 @@ public class TaskService {
     }
 
     @Transactional
-    public void removeAssignment(Long taskId, Long userId, UserRole currentUserRole) {
-        validateAdminRole(currentUserRole);
+    public void removeAssignment(Long taskId, Long userId, Long currentUserId, UserRole currentUserRole) {
+        validateAdminOrLeaderRole(currentUserRole);
 
-        findTaskOrThrow(taskId);
+        Task task = findTaskOrThrow(taskId);
+        if (currentUserRole == UserRole.TEAM_LEADER) {
+            validateProjectLeaderForTask(task.getProject().getId(), currentUserId);
+        }
         findUserOrThrow(userId);
 
         if (!taskAssignmentRepository.existsByTaskIdAndUserId(taskId, userId)) {
@@ -145,8 +190,36 @@ public class TaskService {
         taskAssignmentRepository.deleteByTaskIdAndUserId(taskId, userId);
     }
 
+    public List<RecentAssignmentDto> getRecentAssignments(Long currentUserId, UserRole currentUserRole) {
+        if (currentUserRole == null || currentUserRole.isGeneralUser()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        List<TaskAssignment> assignments;
+        if (currentUserRole.isTopManager()) {
+            assignments = taskAssignmentRepository.findTop10ByOrderByCreatedAtDesc();
+        } else {
+            List<Long> projectIds = projectRepository.findByLeaderId(currentUserId).stream()
+                    .map(Project::getId)
+                    .toList();
+            assignments = projectIds.isEmpty()
+                    ? List.of()
+                    : taskAssignmentRepository.findTop10ByTaskProjectIdInOrderByCreatedAtDesc(projectIds);
+        }
+
+        return assignments.stream()
+                .map(RecentAssignmentDto::from)
+                .toList();
+    }
+
     private void validateAdminRole(UserRole currentUserRole) {
         if (currentUserRole != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private void validateAdminOrLeaderRole(UserRole currentUserRole) {
+        if (currentUserRole == UserRole.USER) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
     }
@@ -157,15 +230,30 @@ public class TaskService {
         }
     }
 
-    private void validateTaskAccess(Long taskId, Long currentUserId, UserRole currentUserRole) {
+    private void validateTaskAccess(Task task, Long currentUserId, UserRole currentUserRole) {
         if (currentUserRole == UserRole.ADMIN) {
             return;
         }
 
         validateCurrentUserId(currentUserId);
 
-        if (!taskAssignmentRepository.existsByTaskIdAndUserId(taskId, currentUserId)) {
+        if (currentUserRole == UserRole.TEAM_LEADER) {
+            if (task.getProject().getLeader() != null && task.getProject().getLeader().getId().equals(currentUserId)) {
+                return;
+            }
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (!taskAssignmentRepository.existsByTaskIdAndUserId(task.getId(), currentUserId)) {
             throw new BusinessException(ErrorCode.TASK_ACCESS_DENIED);
+        }
+    }
+
+    private void validateProjectLeaderForTask(Long projectId, Long currentUserId) {
+        validateCurrentUserId(currentUserId);
+        Project project = findProjectOrThrow(projectId);
+        if (project.getLeader() == null || !project.getLeader().getId().equals(currentUserId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "해당 프로젝트의 담당 팀장이 아닙니다.");
         }
     }
 
@@ -194,6 +282,6 @@ public class TaskService {
 
     private User findUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }

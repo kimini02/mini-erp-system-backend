@@ -1,7 +1,12 @@
 package com.minierp.backend.domain.project.controller;
 
+import com.minierp.backend.domain.project.dto.AssignableMemberDto;
+import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.dto.MemberRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectCreateRequestDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
+import com.minierp.backend.domain.project.dto.AvailableMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
@@ -19,6 +24,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,6 +66,7 @@ public class ProjectController {
         ProjectMemberResponseDto response = projectService.addMember(
                 projectId,
                 request.getUserId(),
+                extractUserId(authentication),
                 extractUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -72,7 +79,7 @@ public class ProjectController {
             @PathVariable Long userId,
             Authentication authentication
     ) {
-        projectService.removeMember(projectId, userId, extractUserRole(authentication));
+        projectService.removeMember(projectId, userId, extractUserId(authentication), extractUserRole(authentication));
         return ResponseEntity.noContent().build();
     }
 
@@ -81,8 +88,72 @@ public class ProjectController {
             @PathVariable Long projectId,
             Authentication authentication
     ) {
-        List<ProjectMemberResponseDto> response = projectService.getMembers(projectId, extractUserRole(authentication));
+        List<ProjectMemberResponseDto> response = projectService.getMembers(
+                projectId,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 팀원 목록 조회가 완료되었습니다."));
+    }
+
+    @GetMapping("/{projectId}/members/available")
+    public ResponseEntity<ApiResponse<List<AvailableMemberResponseDto>>> getAvailableMembers(
+            @PathVariable Long projectId,
+            Authentication authentication
+    ) {
+        List<AvailableMemberResponseDto> response = projectService.getAvailableMembers(
+                projectId,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "배정 가능한 팀원 목록 조회가 완료되었습니다."));
+    }
+
+    @GetMapping("/{projectId}/members/assignable")
+    public ResponseEntity<ApiResponse<List<AssignableMemberDto>>> getAssignableMembers(
+            @PathVariable Long projectId,
+            Authentication authentication
+    ) {
+        List<AssignableMemberDto> response = projectService.getAssignableMembers(
+                projectId,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "배정 가능한 팀원 목록 조회가 완료되었습니다."));
+    }
+
+    @GetMapping("/permissions/{userId}")
+    public ResponseEntity<ApiResponse<List<ProjectPermissionDto>>> getUserProjectPermissions(
+            @PathVariable Long userId,
+            Authentication authentication
+    ) {
+        List<ProjectPermissionDto> response = projectService.getUserProjectPermissions(
+                userId,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "사용자 프로젝트 권한 조회가 완료되었습니다."));
+    }
+
+    @PutMapping("/permissions/{userId}")
+    public ResponseEntity<ApiResponse<Void>> updateUserProjectPermissions(
+            @PathVariable Long userId,
+            @Valid @RequestBody ProjectPermissionUpdateRequestDto request,
+            Authentication authentication
+    ) {
+        projectService.updateUserProjectPermissions(
+                userId,
+                request,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(null, "프로젝트 권한이 저장되었습니다."));
+    }
+
+    @GetMapping("/leaders")
+    public ResponseEntity<ApiResponse<List<LeaderSummaryDto>>> getLeaders(Authentication authentication) {
+        List<LeaderSummaryDto> response = projectService.getLeaders(extractUserRole(authentication));
+        return ResponseEntity.ok(ApiResponse.success(response, "팀장 목록 조회가 완료되었습니다."));
     }
 
     @GetMapping("/{projectId}/progress")
@@ -116,8 +187,11 @@ public class ProjectController {
         }
 
         return authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"))
-                ? UserRole.ADMIN
-                : UserRole.USER;
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority.startsWith("ROLE_"))
+                .map(authority -> authority.replace("ROLE_", ""))
+                .map(UserRole::valueOf)
+                .findFirst()
+                .orElse(UserRole.USER);
     }
 }

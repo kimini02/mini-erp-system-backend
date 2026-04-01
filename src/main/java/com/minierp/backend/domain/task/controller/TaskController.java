@@ -3,6 +3,7 @@ package com.minierp.backend.domain.task.controller;
 import com.minierp.backend.domain.task.dto.TaskAssignmentRequestDto;
 import com.minierp.backend.domain.task.dto.TaskAssignmentResponseDto;
 import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
+import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.service.TaskService;
@@ -38,7 +39,11 @@ public class TaskController {
             @Valid @RequestBody TaskCreateRequestDto request,
             Authentication authentication
     ) {
-        TaskResponseDto response = taskService.createTask(request, extractUserRole(authentication));
+        TaskResponseDto response = taskService.createTask(
+                request,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Task가 생성되었습니다."));
     }
@@ -89,6 +94,7 @@ public class TaskController {
         TaskAssignmentResponseDto response = taskService.addAssignment(
                 taskId,
                 request.getUserId(),
+                extractUserId(authentication),
                 extractUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -114,8 +120,17 @@ public class TaskController {
             @PathVariable Long userId,
             Authentication authentication
     ) {
-        taskService.removeAssignment(taskId, userId, extractUserRole(authentication));
+        taskService.removeAssignment(taskId, userId, extractUserId(authentication), extractUserRole(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/recent-assignments")
+    public ResponseEntity<ApiResponse<List<RecentAssignmentDto>>> getRecentAssignments(Authentication authentication) {
+        List<RecentAssignmentDto> response = taskService.getRecentAssignments(
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "최근 업무 배정 이력 조회가 완료되었습니다."));
     }
 
     private Long extractUserId(Authentication authentication) {
@@ -136,8 +151,11 @@ public class TaskController {
         }
 
         return authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"))
-                ? UserRole.ADMIN
-                : UserRole.USER;
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority.startsWith("ROLE_"))
+                .map(authority -> authority.replace("ROLE_", ""))
+                .map(UserRole::valueOf)
+                .findFirst()
+                .orElse(UserRole.USER);
     }
 }

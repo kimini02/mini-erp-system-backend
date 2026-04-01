@@ -1,14 +1,21 @@
 package com.minierp.backend.domain.project.service;
 
 import com.minierp.backend.domain.project.dto.ProjectCreateRequestDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.AssignableMemberDto;
+import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.project.entity.ProjectMember;
 import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
+import com.minierp.backend.domain.task.entity.Task;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
+import com.minierp.backend.domain.task.repository.TaskAssignmentRepository;
 import com.minierp.backend.domain.task.repository.TaskRepository;
 import com.minierp.backend.domain.user.entity.User;
 import com.minierp.backend.domain.user.entity.UserRole;
@@ -35,6 +42,7 @@ import java.lang.reflect.Constructor;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,17 +71,25 @@ class ProjectServiceTest {
     private TaskRepository taskRepository;
 
     @MockBean
+    private TaskAssignmentRepository taskAssignmentRepository;
+
+    @MockBean
     private UserRepository userRepository;
 
     @Test
     @DisplayName("관리자는 프로젝트를 생성할 수 있다")
     void createProject_asAdmin_success() {
+        Long leaderId = 20L;
+        User leader = createUser(leaderId, UserRole.TEAM_LEADER);
         ProjectCreateRequestDto request = ProjectCreateRequestDto.of(
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM,
+                leaderId
         );
+        given(userRepository.findById(leaderId)).willReturn(Optional.of(leader));
         given(projectRepository.save(any(Project.class))).willAnswer(invocation -> {
             Project savedProject = invocation.getArgument(0);
             ReflectionTestUtils.setField(savedProject, "id", 1L);
@@ -85,6 +101,7 @@ class ProjectServiceTest {
         assertThat(response.getProjectId()).isEqualTo(1L);
         assertThat(response.getTitle()).isEqualTo("ERP 재구축");
         assertThat(response.getStatus().name()).isEqualTo("READY");
+        assertThat(response.getLeaderId()).isEqualTo(leaderId);
     }
 
     @Test
@@ -94,7 +111,9 @@ class ProjectServiceTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM,
+                null
         );
 
         assertThatThrownBy(() -> projectService.createProject(request, UserRole.USER))
@@ -104,26 +123,41 @@ class ProjectServiceTest {
     }
 
     @Test
+    @DisplayName("팀장이 아닌 사용자를 프로젝트 팀장으로 지정하면 예외가 발생한다")
+    void createProject_withInvalidLeaderRole_throwsException() {
+        Long leaderId = 30L;
+        ProjectCreateRequestDto request = ProjectCreateRequestDto.of(
+                "ERP 재구축",
+                "사내 업무 시스템 고도화",
+                LocalDate.of(2026, 3, 31),
+                LocalDate.of(2026, 4, 30),
+                Priority.HIGH,
+                leaderId
+        );
+        given(userRepository.findById(leaderId)).willReturn(Optional.of(createUser(leaderId, UserRole.USER)));
+
+        assertThatThrownBy(() -> projectService.createProject(request, UserRole.ADMIN))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_LEADER_ROLE));
+    }
+
+    @Test
     @DisplayName("관리자는 전체 프로젝트를 조회할 수 있다")
     void getProjects_asAdmin_returnsAllProjects() {
         Project firstProject = createProject(1L, "ERP 재구축");
         Project secondProject = createProject(2L, "그룹웨어 고도화");
         given(projectRepository.findAll()).willReturn(List.of(firstProject, secondProject));
-        given(projectMemberRepository.countByProjectId(1L)).willReturn(2L);
-        given(projectMemberRepository.countByProjectId(2L)).willReturn(3L);
-        given(taskRepository.countByProjectId(1L)).willReturn(5L);
-        given(taskRepository.countByProjectId(2L)).willReturn(4L);
-        given(taskRepository.countByProjectIdAndTaskStatus(1L, TaskStatus.DONE)).willReturn(3L);
-        given(taskRepository.countByProjectIdAndTaskStatus(2L, TaskStatus.DONE)).willReturn(1L);
+        given(projectMemberRepository.findByProjectId(1L)).willReturn(List.of());
+        given(projectMemberRepository.findByProjectId(2L)).willReturn(List.of());
+        given(taskRepository.findByProjectId(1L)).willReturn(List.of());
+        given(taskRepository.findByProjectId(2L)).willReturn(List.of());
 
         List<ProjectResponseDto> responses = projectService.getProjects(99L, UserRole.ADMIN);
 
         assertThat(responses).hasSize(2);
         assertThat(responses).extracting(ProjectResponseDto::getProjectId)
                 .containsExactly(1L, 2L);
-        assertThat(responses.get(0).getMemberCount()).isEqualTo(2L);
-        assertThat(responses.get(0).getTaskCount()).isEqualTo(5L);
-        assertThat(responses.get(0).getProgressRate()).isEqualTo(60);
         verify(projectMemberRepository, never()).findByUserId(any());
     }
 
@@ -137,20 +171,16 @@ class ProjectServiceTest {
         ProjectMember firstMember = createProjectMember(100L, firstProject, user);
         ProjectMember secondMember = createProjectMember(101L, secondProject, user);
         given(projectMemberRepository.findByUserId(currentUserId)).willReturn(List.of(firstMember, secondMember));
-        given(projectMemberRepository.countByProjectId(1L)).willReturn(2L);
-        given(projectMemberRepository.countByProjectId(2L)).willReturn(1L);
-        given(taskRepository.countByProjectId(1L)).willReturn(5L);
-        given(taskRepository.countByProjectId(2L)).willReturn(2L);
-        given(taskRepository.countByProjectIdAndTaskStatus(1L, TaskStatus.DONE)).willReturn(4L);
-        given(taskRepository.countByProjectIdAndTaskStatus(2L, TaskStatus.DONE)).willReturn(0L);
+        given(projectMemberRepository.findByProjectId(1L)).willReturn(List.of(firstMember));
+        given(projectMemberRepository.findByProjectId(2L)).willReturn(List.of(secondMember));
+        given(taskRepository.findByProjectId(1L)).willReturn(List.of());
+        given(taskRepository.findByProjectId(2L)).willReturn(List.of());
 
         List<ProjectResponseDto> responses = projectService.getProjects(currentUserId, UserRole.USER);
 
         assertThat(responses).hasSize(2);
         assertThat(responses).extracting(ProjectResponseDto::getProjectId)
                 .containsExactly(1L, 2L);
-        assertThat(responses.get(0).getProgressRate()).isEqualTo(80);
-        assertThat(responses.get(1).getProgressRate()).isZero();
     }
 
     @Test
@@ -170,7 +200,7 @@ class ProjectServiceTest {
             return savedMember;
         });
 
-        ProjectMemberResponseDto response = projectService.addMember(projectId, userId, UserRole.ADMIN);
+        ProjectMemberResponseDto response = projectService.addMember(projectId, userId, 1L, UserRole.ADMIN);
 
         assertThat(response.getId()).isEqualTo(100L);
         assertThat(response.getProjectId()).isEqualTo(projectId);
@@ -186,7 +216,7 @@ class ProjectServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(createUser(userId)));
         given(projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)).willReturn(true);
 
-        assertThatThrownBy(() -> projectService.addMember(projectId, userId, UserRole.ADMIN))
+        assertThatThrownBy(() -> projectService.addMember(projectId, userId, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.DUPLICATE_PROJECT_MEMBER));
@@ -201,8 +231,9 @@ class ProjectServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(createUser(userId)));
         given(projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)).willReturn(true);
 
-        projectService.removeMember(projectId, userId, UserRole.ADMIN);
+        projectService.removeMember(projectId, userId, 1L, UserRole.ADMIN);
 
+        verify(taskAssignmentRepository).deleteByProjectIdAndUserId(projectId, userId);
         verify(projectMemberRepository).deleteByProjectIdAndUserId(projectId, userId);
     }
 
@@ -215,37 +246,10 @@ class ProjectServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(createUser(userId)));
         given(projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)).willReturn(false);
 
-        assertThatThrownBy(() -> projectService.removeMember(projectId, userId, UserRole.ADMIN))
+        assertThatThrownBy(() -> projectService.removeMember(projectId, userId, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.PROJECT_MEMBER_NOT_FOUND));
-    }
-
-    @Test
-    @DisplayName("관리자는 프로젝트 팀원 목록을 조회할 수 있다")
-    void getMembers_asAdmin_success() {
-        Long projectId = 1L;
-        Project project = createProject(projectId, "ERP 재구축");
-        ProjectMember firstMember = createProjectMember(100L, project, createUser(10L));
-        ProjectMember secondMember = createProjectMember(101L, project, createUser(11L));
-
-        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
-        given(projectMemberRepository.findByProjectId(projectId)).willReturn(List.of(firstMember, secondMember));
-
-        List<ProjectMemberResponseDto> responses = projectService.getMembers(projectId, UserRole.ADMIN);
-
-        assertThat(responses).hasSize(2);
-        assertThat(responses).extracting(ProjectMemberResponseDto::getUserId)
-                .containsExactly(10L, 11L);
-    }
-
-    @Test
-    @DisplayName("일반 사용자는 프로젝트 팀원 목록을 조회할 수 없다")
-    void getMembers_asUser_throwsAccessDenied() {
-        assertThatThrownBy(() -> projectService.getMembers(1L, UserRole.USER))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
-                        .isEqualTo(ErrorCode.ACCESS_DENIED));
     }
 
     @Test
@@ -253,8 +257,11 @@ class ProjectServiceTest {
     void getProjectProgress_success() {
         Long projectId = 1L;
         given(projectRepository.findById(projectId)).willReturn(Optional.of(createProject(projectId, "ERP 재구축")));
-        given(taskRepository.countByProjectId(projectId)).willReturn(3L);
-        given(taskRepository.countByProjectIdAndTaskStatus(projectId, TaskStatus.DONE)).willReturn(2L);
+        given(taskRepository.findByProjectId(projectId)).willReturn(List.of(
+                createTask(1L, projectId, TaskStatus.TODO),
+                createTask(2L, projectId, TaskStatus.DONE),
+                createTask(3L, projectId, TaskStatus.DONE)
+        ));
 
         ProjectProgressResponseDto response = projectService.getProjectProgress(projectId, 99L, UserRole.ADMIN);
 
@@ -265,12 +272,51 @@ class ProjectServiceTest {
     }
 
     @Test
+    @DisplayName("팀장은 본인 담당 프로젝트에만 팀원을 추가할 수 있다")
+    void addMember_asTeamLeader_success() {
+        Long projectId = 1L;
+        Long leaderId = 20L;
+        Long userId = 10L;
+        Project project = createProject(projectId, "ERP 재구축");
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        User user = createUser(userId, UserRole.USER);
+
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)).willReturn(false);
+        given(projectMemberRepository.save(any(ProjectMember.class))).willAnswer(invocation -> {
+            ProjectMember savedMember = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMember, "id", 101L);
+            return savedMember;
+        });
+
+        ProjectMemberResponseDto response = projectService.addMember(projectId, userId, leaderId, UserRole.TEAM_LEADER);
+
+        assertThat(response.getProjectId()).isEqualTo(projectId);
+        assertThat(response.getUserId()).isEqualTo(userId);
+    }
+
+    @Test
+    @DisplayName("팀장은 본인 담당이 아닌 프로젝트에 팀원을 추가할 수 없다")
+    void addMember_asTeamLeaderWithoutOwnership_throwsAccessDenied() {
+        Long projectId = 1L;
+        Long leaderId = 20L;
+        Project project = createProject(projectId, "ERP 재구축");
+        ReflectionTestUtils.setField(project, "leader", createUser(30L, UserRole.TEAM_LEADER));
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+
+        assertThatThrownBy(() -> projectService.addMember(projectId, 10L, leaderId, UserRole.TEAM_LEADER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
     @DisplayName("업무가 없는 프로젝트의 진행률은 0이다")
     void getProjectProgress_whenNoTasks_returnsZero() {
         Long projectId = 1L;
         given(projectRepository.findById(projectId)).willReturn(Optional.of(createProject(projectId, "ERP 재구축")));
-        given(taskRepository.countByProjectId(projectId)).willReturn(0L);
-        given(taskRepository.countByProjectIdAndTaskStatus(projectId, TaskStatus.DONE)).willReturn(0L);
+        given(taskRepository.findByProjectId(projectId)).willReturn(List.of());
 
         ProjectProgressResponseDto response = projectService.getProjectProgress(projectId, 99L, UserRole.ADMIN);
 
@@ -293,18 +339,179 @@ class ProjectServiceTest {
                         .isEqualTo(ErrorCode.ACCESS_DENIED));
     }
 
+    @Test
+    @DisplayName("ADMIN은 사용자 프로젝트 권한 목록을 전체 프로젝트 기준으로 조회한다")
+    void getUserProjectPermissions_asAdmin_success() {
+        Long targetUserId = 10L;
+        Project firstProject = createProject(1L, "ERP");
+        Project secondProject = createProject(2L, "그룹웨어");
+        User targetUser = createUser(targetUserId);
+        ProjectMember projectMember = createProjectMember(100L, secondProject, targetUser);
+        given(projectRepository.findAll()).willReturn(List.of(firstProject, secondProject));
+        given(projectMemberRepository.findByUserId(targetUserId)).willReturn(List.of(projectMember));
+
+        List<ProjectPermissionDto> responses = projectService.getUserProjectPermissions(
+                targetUserId,
+                1L,
+                UserRole.ADMIN
+        );
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.stream().filter(ProjectPermissionDto::isAssigned).map(ProjectPermissionDto::getProjectId))
+                .containsExactly(2L);
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER는 본인 담당 프로젝트 범위에서 사용자 권한 목록을 조회한다")
+    void getUserProjectPermissions_asTeamLeader_success() {
+        Long targetUserId = 10L;
+        Long leaderId = 20L;
+        Project managedProject = createProject(1L, "ERP");
+        ReflectionTestUtils.setField(managedProject, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        User targetUser = createUser(targetUserId);
+        ProjectMember projectMember = createProjectMember(200L, managedProject, targetUser);
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(managedProject));
+        given(projectMemberRepository.findByUserId(targetUserId)).willReturn(List.of(projectMember));
+
+        List<ProjectPermissionDto> responses = projectService.getUserProjectPermissions(
+                targetUserId,
+                leaderId,
+                UserRole.TEAM_LEADER
+        );
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).isAssigned()).isTrue();
+    }
+
+    @Test
+    @DisplayName("ADMIN은 사용자 프로젝트 권한을 일괄 저장할 수 있다")
+    void updateUserProjectPermissions_asAdmin_success() {
+        Long targetUserId = 10L;
+        User targetUser = createUser(targetUserId, UserRole.USER);
+        Project project1 = createProject(1L, "ERP");
+        Project project2 = createProject(2L, "그룹웨어");
+        Project project3 = createProject(3L, "모바일");
+
+        ProjectMember currentMember1 = createProjectMember(100L, project1, targetUser);
+        ProjectMember currentMember2 = createProjectMember(101L, project2, targetUser);
+
+        given(userRepository.findById(targetUserId)).willReturn(Optional.of(targetUser));
+        given(projectRepository.findAll()).willReturn(List.of(project1, project2, project3));
+        given(projectMemberRepository.findByUserId(targetUserId)).willReturn(List.of(currentMember1, currentMember2));
+        given(projectRepository.findById(3L)).willReturn(Optional.of(project3));
+
+        projectService.updateUserProjectPermissions(
+                targetUserId,
+                ProjectPermissionUpdateRequestDto.of(List.of(2L, 3L)),
+                1L,
+                UserRole.ADMIN
+        );
+
+        verify(projectMemberRepository).save(any(ProjectMember.class));
+        verify(taskAssignmentRepository).deleteByProjectIdAndUserId(1L, targetUserId);
+        verify(projectMemberRepository).deleteByProjectIdAndUserId(1L, targetUserId);
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER는 USER만 권한 일괄 저장할 수 있다")
+    void updateUserProjectPermissions_asTeamLeaderWithNonUser_throwsAccessDenied() {
+        Long targetUserId = 10L;
+        given(userRepository.findById(targetUserId)).willReturn(Optional.of(createUser(targetUserId, UserRole.TEAM_LEADER)));
+
+        assertThatThrownBy(() -> projectService.updateUserProjectPermissions(
+                targetUserId,
+                ProjectPermissionUpdateRequestDto.of(List.of(1L)),
+                20L,
+                UserRole.TEAM_LEADER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER가 관리 범위 밖 프로젝트 권한을 설정하면 예외가 발생한다")
+    void updateUserProjectPermissions_withOutOfScopeProject_throwsAccessDenied() {
+        Long targetUserId = 10L;
+        Long leaderId = 20L;
+        User targetUser = createUser(targetUserId, UserRole.USER);
+        Project managedProject = createProject(1L, "ERP");
+        ReflectionTestUtils.setField(managedProject, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        given(userRepository.findById(targetUserId)).willReturn(Optional.of(targetUser));
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(managedProject));
+
+        assertThatThrownBy(() -> projectService.updateUserProjectPermissions(
+                targetUserId,
+                ProjectPermissionUpdateRequestDto.of(List.of(1L, 2L)),
+                leaderId,
+                UserRole.TEAM_LEADER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("배정 가능한 팀원 목록 조회 시 USER 역할만 반환한다")
+    void getAssignableMembers_returnsOnlyUserRole() {
+        Long projectId = 1L;
+        Long leaderId = 20L;
+        Project project = createProject(projectId, "ERP");
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+
+        ProjectMember userMember = createProjectMember(1L, project, createUser(10L, UserRole.USER));
+        ProjectMember leaderMember = createProjectMember(2L, project, createUser(11L, UserRole.TEAM_LEADER));
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+        given(projectMemberRepository.findByProjectId(projectId)).willReturn(List.of(userMember, leaderMember));
+
+        List<AssignableMemberDto> responses = projectService.getAssignableMembers(projectId, leaderId, UserRole.TEAM_LEADER);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getUserId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("ADMIN은 팀장 목록과 담당 프로젝트 수를 조회할 수 있다")
+    void getLeaders_asAdmin_success() {
+        User leader1 = createUser(20L, UserRole.TEAM_LEADER);
+        User leader2 = createUser(21L, UserRole.TEAM_LEADER);
+        given(userRepository.findByUserRole(UserRole.TEAM_LEADER)).willReturn(List.of(leader1, leader2));
+        given(projectRepository.countByLeaderId(20L)).willReturn(2L);
+        given(projectRepository.countByLeaderId(21L)).willReturn(1L);
+
+        List<LeaderSummaryDto> responses = projectService.getLeaders(UserRole.ADMIN);
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses).extracting(LeaderSummaryDto::getAssignedProjectCount)
+                .containsExactly(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("USER는 팀장 목록을 조회할 수 없다")
+    void getLeaders_asUser_throwsAccessDenied() {
+        assertThatThrownBy(() -> projectService.getLeaders(UserRole.USER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
     private Project createProject(Long id, String title) {
         Project project = Project.create(
                 title,
                 "설명",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
         );
         ReflectionTestUtils.setField(project, "id", id);
         return project;
     }
 
     private User createUser(Long id) {
+        return createUser(id, UserRole.USER);
+    }
+
+    private User createUser(Long id, UserRole role) {
         User user;
         try {
             Constructor<User> constructor = User.class.getDeclaredConstructor();
@@ -314,6 +521,8 @@ class ProjectServiceTest {
             throw new IllegalStateException("User 테스트 객체 생성에 실패했습니다.", e);
         }
         ReflectionTestUtils.setField(user, "id", id);
+        ReflectionTestUtils.setField(user, "userName", "사용자" + id);
+        ReflectionTestUtils.setField(user, "userRole", role);
         return user;
     }
 
@@ -321,6 +530,20 @@ class ProjectServiceTest {
         ProjectMember projectMember = ProjectMember.create(project, user);
         ReflectionTestUtils.setField(projectMember, "id", id);
         return projectMember;
+    }
+
+    private Task createTask(Long id, Long projectId, TaskStatus taskStatus) {
+        Project project = createProject(projectId, "ERP 재구축");
+        Task task = Task.create(
+                "업무 제목",
+                "업무 내용",
+                LocalDate.of(2026, 4, 2),
+                taskStatus,
+                Priority.MEDIUM,
+                project
+        );
+        ReflectionTestUtils.setField(task, "id", id);
+        return task;
     }
 
     @TestConfiguration

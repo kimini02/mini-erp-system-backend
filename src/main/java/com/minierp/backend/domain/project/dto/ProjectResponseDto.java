@@ -2,6 +2,7 @@ package com.minierp.backend.domain.project.dto;
 
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.project.entity.ProjectStatus;
+import com.minierp.backend.global.entity.Priority;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -15,11 +16,14 @@ public class ProjectResponseDto {
     private String title;
     private String content;
     private ProjectStatus status;
+    private Priority priority;
     private LocalDate startDate;
     private LocalDate endDate;
     private long memberCount;
     private long taskCount;
     private int progressRate;
+    private Long leaderId;
+    private String leaderName;
 
     public static ProjectResponseDto from(Project project) {
         return from(project, 0L, 0L, 0);
@@ -31,11 +35,14 @@ public class ProjectResponseDto {
                 project.getTitle(),
                 project.getContent(),
                 project.getStatus(),
+                project.getPriority(),
                 project.getStartDate(),
                 project.getEndDate(),
                 memberCount,
                 taskCount,
-                progressRate
+                progressRate,
+                project.getLeader() != null ? project.getLeader().getId() : null,
+                project.getLeader() != null ? project.getLeader().getUserName() : null
         );
     }
 }

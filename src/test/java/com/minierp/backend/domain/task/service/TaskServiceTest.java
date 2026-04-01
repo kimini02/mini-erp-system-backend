@@ -5,11 +5,12 @@ import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.dto.TaskAssignmentResponseDto;
 import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
+import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import com.minierp.backend.domain.task.repository.TaskAssignmentRepository;
 import com.minierp.backend.domain.task.repository.TaskRepository;
@@ -84,7 +85,7 @@ class TaskServiceTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.HIGH,
+                Priority.HIGH,
                 List.of(10L, 11L)
         );
 
@@ -99,12 +100,12 @@ class TaskServiceTest {
             return savedTask;
         });
 
-        TaskResponseDto response = taskService.createTask(request, UserRole.ADMIN);
+        TaskResponseDto response = taskService.createTask(request, 1L, UserRole.ADMIN);
 
         assertThat(response.getId()).isEqualTo(100L);
         assertThat(response.getProjectId()).isEqualTo(projectId);
         assertThat(response.getTaskTitle()).isEqualTo("내 업무 화면 구현");
-        assertThat(response.getPriority()).isEqualTo(TaskPriority.HIGH);
+        assertThat(response.getPriority()).isEqualTo(Priority.HIGH);
         assertThat(response.getAssignees()).hasSize(2);
         assertThat(response.getAssignees()).extracting(TaskResponseDto.AssigneeSummaryDto::getUserName)
                 .containsExactly("사용자10", "사용자11");
@@ -119,11 +120,11 @@ class TaskServiceTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.HIGH,
+                Priority.HIGH,
                 List.of(10L, 10L)
         );
 
-        assertThatThrownBy(() -> taskService.createTask(request, UserRole.ADMIN))
+        assertThatThrownBy(() -> taskService.createTask(request, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.DUPLICATE_ASSIGNMENT));
@@ -142,7 +143,7 @@ class TaskServiceTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.HIGH,
+                Priority.HIGH,
                 List.of(userId)
         );
 
@@ -150,7 +151,7 @@ class TaskServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)).willReturn(false);
 
-        assertThatThrownBy(() -> taskService.createTask(request, UserRole.ADMIN))
+        assertThatThrownBy(() -> taskService.createTask(request, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ACCESS_DENIED));
@@ -181,6 +182,24 @@ class TaskServiceTest {
         given(taskRepository.findByAssigneeUserId(currentUserId)).willReturn(List.of(task));
 
         List<TaskResponseDto> responses = taskService.getTasks(currentUserId, UserRole.USER);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("팀장은 본인 담당 프로젝트의 업무만 조회할 수 있다")
+    void getTasks_asTeamLeader_returnsOwnProjectTasks() {
+        Long leaderId = 20L;
+        Project project = createProject(1L);
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        Task task = createTask(1L, 1L, TaskStatus.DOING);
+        ReflectionTestUtils.setField(task.getProject(), "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(project));
+        given(taskRepository.findByProjectId(1L)).willReturn(List.of(task));
+
+        List<TaskResponseDto> responses = taskService.getTasks(leaderId, UserRole.TEAM_LEADER);
 
         assertThat(responses).hasSize(1);
         assertThat(responses.get(0).getId()).isEqualTo(1L);
@@ -248,7 +267,7 @@ class TaskServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(createUser(userId)));
         given(taskAssignmentRepository.existsByTaskIdAndUserId(taskId, userId)).willReturn(true);
 
-        assertThatThrownBy(() -> taskService.addAssignment(taskId, userId, UserRole.ADMIN))
+        assertThatThrownBy(() -> taskService.addAssignment(taskId, userId, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.DUPLICATE_ASSIGNMENT));
@@ -272,7 +291,7 @@ class TaskServiceTest {
             return savedAssignment;
         });
 
-        TaskAssignmentResponseDto response = taskService.addAssignment(taskId, userId, UserRole.ADMIN);
+        TaskAssignmentResponseDto response = taskService.addAssignment(taskId, userId, 1L, UserRole.ADMIN);
 
         assertThat(response.getId()).isEqualTo(101L);
         assertThat(response.getTaskId()).isEqualTo(taskId);
@@ -291,7 +310,7 @@ class TaskServiceTest {
         given(taskAssignmentRepository.existsByTaskIdAndUserId(taskId, userId)).willReturn(false);
         given(projectMemberRepository.existsByProjectIdAndUserId(task.getProject().getId(), userId)).willReturn(false);
 
-        assertThatThrownBy(() -> taskService.addAssignment(taskId, userId, UserRole.ADMIN))
+        assertThatThrownBy(() -> taskService.addAssignment(taskId, userId, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ACCESS_DENIED));
@@ -326,10 +345,122 @@ class TaskServiceTest {
         given(userRepository.findById(userId)).willReturn(Optional.of(createUser(userId)));
         given(taskAssignmentRepository.existsByTaskIdAndUserId(taskId, userId)).willReturn(false);
 
-        assertThatThrownBy(() -> taskService.removeAssignment(taskId, userId, UserRole.ADMIN))
+        assertThatThrownBy(() -> taskService.removeAssignment(taskId, userId, 1L, UserRole.ADMIN))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ASSIGNMENT_NOT_FOUND));
+
+    }
+
+    @Test
+    @DisplayName("팀장은 본인 담당 프로젝트에 업무를 생성할 수 있다")
+    void createTask_asTeamLeader_success() {
+        Long leaderId = 20L;
+        Long projectId = 1L;
+        Project project = createProject(projectId);
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        User user = createUser(10L, UserRole.USER);
+        TaskCreateRequestDto request = TaskCreateRequestDto.of(
+                projectId,
+                "팀장 업무 생성",
+                "팀장 권한 검증",
+                LocalDate.of(2026, 4, 2),
+                TaskStatus.TODO,
+                Priority.MEDIUM,
+                List.of(10L)
+        );
+
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+        given(userRepository.findById(10L)).willReturn(Optional.of(user));
+        given(projectMemberRepository.existsByProjectIdAndUserId(projectId, 10L)).willReturn(true);
+        given(taskRepository.save(any(Task.class))).willAnswer(invocation -> {
+            Task savedTask = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedTask, "id", 120L);
+            return savedTask;
+        });
+
+        TaskResponseDto response = taskService.createTask(request, leaderId, UserRole.TEAM_LEADER);
+        assertThat(response.getId()).isEqualTo(120L);
+    }
+
+    @Test
+    @DisplayName("팀장은 본인 담당이 아닌 프로젝트에 업무를 생성할 수 없다")
+    void createTask_asTeamLeaderWithoutOwnership_throwsAccessDenied() {
+        Long leaderId = 20L;
+        Long projectId = 1L;
+        Project project = createProject(projectId);
+        ReflectionTestUtils.setField(project, "leader", createUser(30L, UserRole.TEAM_LEADER));
+        TaskCreateRequestDto request = TaskCreateRequestDto.of(
+                projectId,
+                "팀장 업무 생성",
+                "팀장 권한 검증",
+                LocalDate.of(2026, 4, 2),
+                TaskStatus.TODO,
+                Priority.MEDIUM,
+                List.of(10L)
+        );
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+
+        assertThatThrownBy(() -> taskService.createTask(request, leaderId, UserRole.TEAM_LEADER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("ADMIN은 최근 업무 배정 이력을 조회할 수 있다")
+    void getRecentAssignments_asAdmin_success() {
+        Task task = createTask(1L, 1L, TaskStatus.TODO);
+        User user = createUser(10L, UserRole.USER);
+        TaskAssignment assignment = TaskAssignment.create(task, user);
+        ReflectionTestUtils.setField(assignment, "id", 100L);
+
+        given(taskAssignmentRepository.findTop10ByOrderByCreatedAtDesc()).willReturn(List.of(assignment));
+
+        List<RecentAssignmentDto> responses = taskService.getRecentAssignments(1L, UserRole.ADMIN);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getTaskId()).isEqualTo(1L);
+        assertThat(responses.get(0).getAssigneeName()).isEqualTo("사용자10");
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER는 본인 담당 프로젝트의 최근 업무 배정 이력만 조회한다")
+    void getRecentAssignments_asTeamLeader_success() {
+        Long leaderId = 20L;
+        Project project = createProject(1L);
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        Task task = Task.create(
+                "업무 제목",
+                "업무 내용",
+                LocalDate.of(2026, 4, 2),
+                TaskStatus.TODO,
+                Priority.MEDIUM,
+                project
+        );
+        ReflectionTestUtils.setField(task, "id", 1L);
+
+        User user = createUser(10L, UserRole.USER);
+        TaskAssignment assignment = TaskAssignment.create(task, user);
+        ReflectionTestUtils.setField(assignment, "id", 100L);
+
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(project));
+        given(taskAssignmentRepository.findTop10ByTaskProjectIdInOrderByCreatedAtDesc(List.of(1L)))
+                .willReturn(List.of(assignment));
+
+        List<RecentAssignmentDto> responses = taskService.getRecentAssignments(leaderId, UserRole.TEAM_LEADER);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getProjectTitle()).isEqualTo("ERP 재구축");
+    }
+
+    @Test
+    @DisplayName("USER는 최근 업무 배정 이력을 조회할 수 없다")
+    void getRecentAssignments_asUser_throwsAccessDenied() {
+        assertThatThrownBy(() -> taskService.getRecentAssignments(10L, UserRole.USER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
     }
 
     private Project createProject(Long id) {
@@ -337,7 +468,8 @@ class TaskServiceTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
         );
         ReflectionTestUtils.setField(project, "id", id);
         return project;
@@ -349,7 +481,7 @@ class TaskServiceTest {
                 "업무 내용",
                 LocalDate.of(2026, 4, 2),
                 taskStatus,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 createProject(projectId)
         );
         ReflectionTestUtils.setField(task, "id", id);
@@ -357,6 +489,10 @@ class TaskServiceTest {
     }
 
     private User createUser(Long id) {
+        return createUser(id, UserRole.USER);
+    }
+
+    private User createUser(Long id, UserRole role) {
         User user;
         try {
             Constructor<User> constructor = User.class.getDeclaredConstructor();
@@ -367,6 +503,7 @@ class TaskServiceTest {
         }
         ReflectionTestUtils.setField(user, "id", id);
         ReflectionTestUtils.setField(user, "userName", "사용자" + id);
+        ReflectionTestUtils.setField(user, "userRole", role);
         return user;
     }
 
