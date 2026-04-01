@@ -1,6 +1,7 @@
 package com.minierp.backend.domain.project.entity;
 
 import com.minierp.backend.domain.task.entity.Task;
+import com.minierp.backend.domain.user.entity.User;
 import com.minierp.backend.global.entity.BaseEntity;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
@@ -35,6 +36,10 @@ public class Project extends BaseEntity {
     @Column(nullable = false)
     private ProjectStatus status;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "leader_id")
+    private User leader;
+
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Task> tasks = new ArrayList<>();
 
@@ -47,18 +52,33 @@ public class Project extends BaseEntity {
             LocalDate startDate,
             LocalDate endDate
     ) {
+        return create(title, content, startDate, endDate, null);
+    }
+
+    public static Project create(
+            String title,
+            String content,
+            LocalDate startDate,
+            LocalDate endDate,
+            User leader
+    ) {
         Project project = new Project();
         project.title = title;
         project.content = content;
         project.startDate = startDate;
         project.endDate = endDate;
         project.status = ProjectStatus.READY;
+        project.leader = leader;
         project.validatePeriod();
         return project;
     }
 
     public void changeStatus(ProjectStatus newStatus) {
         this.status = newStatus;
+    }
+
+    public void assignLeader(User leader) {
+        this.leader = leader;
     }
 
     @PrePersist

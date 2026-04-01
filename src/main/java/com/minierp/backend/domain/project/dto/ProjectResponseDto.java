@@ -17,15 +17,29 @@ public class ProjectResponseDto {
     private ProjectStatus status;
     private LocalDate startDate;
     private LocalDate endDate;
+    private long memberCount;
+    private long taskCount;
+    private int progressRate;
+    private Long leaderId;
+    private String leaderName;
 
     public static ProjectResponseDto from(Project project) {
+        return from(project, 0L, 0L, 0);
+    }
+
+    public static ProjectResponseDto from(Project project, long memberCount, long taskCount, int progressRate) {
         return new ProjectResponseDto(
                 project.getId(),
                 project.getTitle(),
                 project.getContent(),
                 project.getStatus(),
                 project.getStartDate(),
-                project.getEndDate()
+                project.getEndDate(),
+                memberCount,
+                taskCount,
+                progressRate,
+                project.getLeader() != null ? project.getLeader().getId() : null,
+                project.getLeader() != null ? project.getLeader().getUserName() : null
         );
     }
 }

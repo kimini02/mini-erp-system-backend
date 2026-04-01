@@ -60,6 +60,7 @@ public class ProjectController {
         ProjectMemberResponseDto response = projectService.addMember(
                 projectId,
                 request.getUserId(),
+                extractUserId(authentication),
                 extractUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -72,8 +73,34 @@ public class ProjectController {
             @PathVariable Long userId,
             Authentication authentication
     ) {
-        projectService.removeMember(projectId, userId, extractUserRole(authentication));
+        projectService.removeMember(projectId, userId, extractUserId(authentication), extractUserRole(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{projectId}/members")
+    public ResponseEntity<ApiResponse<List<ProjectMemberResponseDto>>> getMembers(
+            @PathVariable Long projectId,
+            Authentication authentication
+    ) {
+        List<ProjectMemberResponseDto> response = projectService.getMembers(
+                projectId,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 팀원 목록 조회가 완료되었습니다."));
+    }
+
+    @GetMapping("/{projectId}/members/available")
+    public ResponseEntity<ApiResponse<List<ProjectMemberResponseDto>>> getAvailableMembers(
+            @PathVariable Long projectId,
+            Authentication authentication
+    ) {
+        List<ProjectMemberResponseDto> response = projectService.getAvailableMembers(
+                projectId,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "배정 가능한 팀원 목록 조회가 완료되었습니다."));
     }
 
     @GetMapping("/{projectId}/progress")
@@ -107,8 +134,11 @@ public class ProjectController {
         }
 
         return authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"))
-                ? UserRole.ADMIN
-                : UserRole.USER;
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority.startsWith("ROLE_"))
+                .map(authority -> authority.replace("ROLE_", ""))
+                .map(UserRole::valueOf)
+                .findFirst()
+                .orElse(UserRole.USER);
     }
 }

@@ -11,12 +11,23 @@ public class ProjectMemberResponseDto {
     private Long id;
     private Long projectId;
     private Long userId;
+    private String userName;
 
     public static ProjectMemberResponseDto from(ProjectMember projectMember) {
         return new ProjectMemberResponseDto(
                 projectMember.getId(),
                 projectMember.getProject().getId(),
-                projectMember.getUser().getId()
+                projectMember.getUser().getId(),
+                projectMember.getUser().getUserName()
+        );
+    }
+
+    public static ProjectMemberResponseDto fromUser(Long projectId, Long userId, String userName) {
+        return new ProjectMemberResponseDto(
+                null,
+                projectId,
+                userId,
+                userName
         );
     }
 }
