@@ -11,4 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class User extends BaseEntity {
+
+    @Column(name = "user_name", nullable = false, length = 50)
+    private String userName;
 }
