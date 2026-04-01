@@ -38,7 +38,11 @@ public class TaskController {
             @Valid @RequestBody TaskCreateRequestDto request,
             Authentication authentication
     ) {
-        TaskResponseDto response = taskService.createTask(request, extractUserRole(authentication));
+        TaskResponseDto response = taskService.createTask(
+                request,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Task가 생성되었습니다."));
     }
@@ -89,6 +93,7 @@ public class TaskController {
         TaskAssignmentResponseDto response = taskService.addAssignment(
                 taskId,
                 request.getUserId(),
+                extractUserId(authentication),
                 extractUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -114,7 +119,7 @@ public class TaskController {
             @PathVariable Long userId,
             Authentication authentication
     ) {
-        taskService.removeAssignment(taskId, userId, extractUserRole(authentication));
+        taskService.removeAssignment(taskId, userId, extractUserId(authentication), extractUserRole(authentication));
         return ResponseEntity.noContent().build();
     }
 
@@ -136,8 +141,11 @@ public class TaskController {
         }
 
         return authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"))
-                ? UserRole.ADMIN
-                : UserRole.USER;
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority.startsWith("ROLE_"))
+                .map(authority -> authority.replace("ROLE_", ""))
+                .map(UserRole::valueOf)
+                .findFirst()
+                .orElse(UserRole.USER);
     }
 }
