@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /Users/kimmini/my-project/backend -name *.java)"
+      "Bash(find /Users/kimmini/my-project/backend -name *.java)",
+      "Bash(mv domain.md 01-domain.md)",
+      "Bash(mv Entity.md 02-entity.md)",
+      "Bash(mv RESTAPI.md 03-rest-api.md)",
+      "Bash(mv be_structure_request_template.md 04-structure-template.md)",
+      "Bash(mv prodcut.md 05-product.md)"
     ]
   }
 }
