@@ -18,7 +18,7 @@ public class AuthController {
     // ⭐️ 회원가입 API (스웨거에 POST 버튼을 만들어 줍니다!)
     @PostMapping("/signup")
     public ResponseEntity<String> signup(@RequestBody SignupRequestDto dto) {
-        // 입력받은 정보로 가짜 유저(연차 15일 기본 제공) 생성
+        // 입력받은 정보로 가짜 유저 생성
         User user = User.builder()
                 .userName(dto.getUserName())
                 .userEmail(dto.getUserEmail())

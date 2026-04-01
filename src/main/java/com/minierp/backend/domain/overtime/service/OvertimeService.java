@@ -58,7 +58,7 @@ public class OvertimeService {
         User accessor = userRepository.findById(accessorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // [방어 로직] USER 권한인데 본인 내역이 아니라면 차단
+        // [방어 로직] 일반 사원(USER)은 본인 내역만 조회 가능. 팀장(TEAMLEADER)과 관리소장(ADMIN)은 타인 내역 조회 가능.
         if (accessor.getUserRole() == UserRole.USER && !request.getRequester().getId().equals(accessorId)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
@@ -77,8 +77,12 @@ public class OvertimeService {
         User approver = userRepository.findById(approverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (approver.getUserRole() == UserRole.USER) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        // [Hierarchy 검증]
+        validateApprovalHierarchy(request.getRequester(), approver);
+
+        // [비즈니스 규칙 1] 본인 결재 차단 (단, 관리소장 ADMIN은 예외적으로 셀프 승인 허용)
+        if (request.getRequester().getId().equals(approverId) && approver.getUserRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.SELF_APPROVAL_NOT_ALLOWED);
         }
 
         request.approve(approver);
@@ -95,11 +99,46 @@ public class OvertimeService {
         User approver = userRepository.findById(approverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // [Hierarchy 검증]
+        validateApprovalHierarchy(request.getRequester(), approver);
+
+        // [비즈니스 규칙 1] 본인 결재 차단 (단, 관리소장 ADMIN은 예외적으로 셀프 반려 허용)
+        if (request.getRequester().getId().equals(approverId) && approver.getUserRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.SELF_APPROVAL_NOT_ALLOWED);
+        }
+
+        request.reject(approver);
+    }
+
+    /**
+     * [Hierarchy 검증 로직]
+     * 1. 일반 사원(USER)일 때: 팀장(TEAMLEADER) 또는 관리소장(ADMIN)이 결재 가능
+     * 2. 팀장(TEAMLEADER)일 때: 관리소장(ADMIN)만 결재 가능
+     * 3. 관리소장(ADMIN)일 때: 본인이 직접 결재 가능 (상위 권한 없음)
+     */
+    private void validateApprovalHierarchy(User requester, User approver) {
+        // 결재자가 일반 사원이면 무조건 차단
         if (approver.getUserRole() == UserRole.USER) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
         }
 
-        request.reject(approver);
+        // 팀장 이상의 신청 건에 대해 팀장이 결재를 시도할 경우 차단
+        if (requester.getUserRole() == UserRole.TEAMLEADER && approver.getUserRole() == UserRole.TEAMLEADER) {
+            // 본인 결재 차단 로직에서 관리소장이 아닌 경우 이미 걸러지지만, 하계 계층 구조 명시를 위해 추가
+            if (!requester.getId().equals(approver.getId())) {
+                throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+            }
+        }
+        
+        // 팀장의 상위 결재자는 관리소장(ADMIN)만 가능
+        if (requester.getUserRole() == UserRole.TEAMLEADER && approver.getUserRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        }
+        
+        // 관리소장의 신청 건은 관리소장 본인만 처리 가능
+        if (requester.getUserRole() == UserRole.ADMIN && approver.getUserRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        }
     }
 
     /**
@@ -109,7 +148,7 @@ public class OvertimeService {
         User accessor = userRepository.findById(accessorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // [필터링 로직] USER 권한이면 본인 내역만, 관리자면 전체 내역 조회
+        // [필터링 로직] USER 권한이면 본인 내역만, TEAMLEADER/ADMIN 권한이면 전체 내역 조회 가능
         if (accessor.getUserRole() == UserRole.USER) {
             return overtimeRequestRepository.findByRequester_Id(accessorId).stream()
                     .map(OvertimeResponseDto::from)

@@ -5,8 +5,8 @@ import lombok.Getter;
 @Getter
 public enum UserRole {
     USER("일반 사용자"),
-    ADMIN("팀장"),
-    SUPER_ADMIN("관리소장");
+    TEAMLEADER("팀장"),
+    ADMIN("관리소장");
 
     private final String displayName;
 

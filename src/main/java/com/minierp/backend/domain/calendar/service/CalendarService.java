@@ -24,7 +24,6 @@ public class CalendarService {
 
     /**
      * 전사 통합 캘린더 이벤트 조회 (연차 + 특근)
-     * 이제 사용자 필터링 없이 승인된 모든 내역을 가져옵니다.
      */
     public List<CalendarEventResponseDto> getCalendarEvents(int year, int month) {
         LocalDate startDate = LocalDate.of(year, month, 1);
@@ -32,7 +31,7 @@ public class CalendarService {
 
         List<CalendarEventResponseDto> events = new ArrayList<>();
 
-        // 1. 승인된 모든 연차(Leave) 내역 조회 및 변환
+        // 1. 승인된 모든 연차(Leave) 내역 조회 및 변환 (버그 수정: 겹치는 연차 전체 조회)
         events.addAll(getAllApprovedLeaveEvents(startDate, endDate));
 
         // 2. 승인된 모든 특근(Overtime) 내역 조회 및 변환
@@ -42,12 +41,12 @@ public class CalendarService {
     }
 
     private List<CalendarEventResponseDto> getAllApprovedLeaveEvents(LocalDate start, LocalDate end) {
+        // [버그 수정] findOverlappingLeaves 사용하여 월을 걸쳐 있는 연차까지 모두 포함
         return leaveRequestRepository
-                .findByAppStatusAndStartDateBetween(LeaveStatus.APPROVED, start, end)
+                .findOverlappingLeaves(LeaveStatus.APPROVED, start, end)
                 .stream()
                 .map(leave -> CalendarEventResponseDto.builder()
                         .eventId(leave.getId())
-                        // [변경] 누구의 일정인지 알 수 있도록 이름 포함 (프라이버시를 위해 사유 제거)
                         .title("[" + leave.getRequester().getUserName() + "] 연차")
                         .start(leave.getStartDate().atStartOfDay())
                         .end(leave.getEndDate().atTime(23, 59, 59))
@@ -57,12 +56,12 @@ public class CalendarService {
     }
 
     private List<CalendarEventResponseDto> getAllApprovedOvertimeEvents(LocalDate start, LocalDate end) {
+        // 특근은 단일 일자(overtimeDate) 기준이므로 기존 findByStatusAndOvertimeDateBetween 유지
         return overtimeRequestRepository
                 .findByStatusAndOvertimeDateBetween(OvertimeStatus.APPROVED, start, end)
                 .stream()
                 .map(overtime -> CalendarEventResponseDto.builder()
                         .eventId(overtime.getId())
-                        // [변경] 누구의 일정인지 알 수 있도록 이름 포함 (프라이버시를 위해 사유 제거)
                         .title("[" + overtime.getRequester().getUserName() + "] 특근")
                         .start(overtime.getOvertimeDate().atTime(overtime.getStartTime()))
                         .end(overtime.getOvertimeDate().atTime(overtime.getEndTime()))
