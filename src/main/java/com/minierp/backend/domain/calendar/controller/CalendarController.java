@@ -4,6 +4,7 @@ import com.minierp.backend.domain.calendar.dto.CalendarEventResponseDto;
 import com.minierp.backend.domain.calendar.service.CalendarService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,11 +22,11 @@ public class CalendarController {
      */
     @GetMapping("/events")
     public ResponseEntity<List<CalendarEventResponseDto>> getCalendarEvents(
-            @RequestHeader("X-User-Id") Long userId,
+            Authentication authentication,
             @RequestParam int year,
             @RequestParam int month) {
-        
-        List<CalendarEventResponseDto> events = calendarService.getCalendarEvents(userId, year, month);
+
+        List<CalendarEventResponseDto> events = calendarService.getCalendarEvents(authentication.getName(), year, month);
         return ResponseEntity.ok(events);
     }
 }

@@ -24,10 +24,18 @@ public class UserService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public UserListResponseDto getUsers(int page, int size, String role, String search) {
+    public UserListResponseDto getUsers(int page, int size, String role, String search, String requesterLoginId) {
+        User requester = userRepository.findByLoginId(requesterLoginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
         Pageable pageable = PageRequest.of(page, size);
 
-        Specification<User> spec = Specification.where(isActive()).and(roleEquals(role)).and(nameOrEmailContains(search));
+        Specification<User> spec;
+        if (requester.getUserRole().isTopManager()) {
+            spec = Specification.where(isActive()).and(roleEquals(role)).and(nameOrEmailContains(search));
+        } else {
+            spec = Specification.where(isActive()).and(loginIdEquals(requesterLoginId));
+        }
 
         Page<UserResponseDto> users = userRepository.findAll(spec, pageable).map(UserResponseDto::detail);
         return UserListResponseDto.of(users);
@@ -79,6 +87,13 @@ public class UserService {
         return (root, query, cb) -> cb.equal(root.get("userRole"), userRole);
     }
 
+    private Specification<User> loginIdEquals(String loginId) {
+        if (loginId == null || loginId.isBlank()) {
+            return null;
+        }
+        return (root, query, cb) -> cb.equal(root.get("loginId"), loginId);
+    }
+
     private Specification<User> nameOrEmailContains(String search) {
         if (search == null || search.isBlank()) {
             return null;
@@ -93,7 +108,7 @@ public class UserService {
 
     private UserRole parseUserRole(String role) {
         try {
-            return UserRole.valueOf(role.toUpperCase());
+            return UserRole.from(role);
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "유효하지 않은 권한 값입니다.");
         }

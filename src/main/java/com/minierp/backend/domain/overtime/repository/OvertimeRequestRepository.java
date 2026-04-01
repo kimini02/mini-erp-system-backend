@@ -11,4 +11,6 @@ public interface OvertimeRequestRepository extends JpaRepository<OvertimeRequest
     List<OvertimeRequest> findByRequester_Id(Long requesterId);
     List<OvertimeRequest> findByRequester_IdAndStatusAndOvertimeDateBetween(
             Long requesterId, OvertimeStatus status, LocalDate start, LocalDate end);
+    List<OvertimeRequest> findByStatusAndOvertimeDateBetween(
+            OvertimeStatus status, LocalDate start, LocalDate end);
 }

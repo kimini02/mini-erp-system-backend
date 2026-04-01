@@ -29,20 +29,20 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserListResponseDto>> getUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String role,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            Authentication authentication
     ) {
-        UserListResponseDto response = userService.getUsers(page, size, role, search);
+        UserListResponseDto response = userService.getUsers(page, size, role, search, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success(response, "목록 조회가 완료되었습니다"));
     }
 
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponseDto>> getUser(@PathVariable Long userId, Authentication authentication) {
-        UserResponseDto response = userService.getUser(userId, authentication.getName(), isAdmin(authentication));
+        UserResponseDto response = userService.getUser(userId, authentication.getName(), isTopManager(authentication));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -52,7 +52,7 @@ public class UserController {
             @Valid @RequestBody UserUpdateRequestDto requestDto,
             Authentication authentication
     ) {
-        UserResponseDto response = userService.updateUser(userId, requestDto, authentication.getName(), isAdmin(authentication));
+        UserResponseDto response = userService.updateUser(userId, requestDto, authentication.getName(), isTopManager(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "사용자 정보가 수정되었습니다"));
     }
 
@@ -66,7 +66,8 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response, "사용자 권한이 변경되었습니다"));
     }
 
-    private boolean isAdmin(Authentication authentication) {
-        return authentication.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    private boolean isTopManager(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 }

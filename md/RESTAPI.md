@@ -185,83 +185,9 @@ Response (401 Unauthorized):
 
 ## 4. 상세 API 명세
 
-### 4.1 사용자 관리 API
+### 4.1 인증/사용자 관리 API
 
-#### 4.1.1 사용자 목록 조회
-```yaml
-GET /api/v1/users
-Authorization: Bearer {ACCESS_TOKEN}
-Required Role: ADMIN
-
-Query Parameters:
-- page: integer (default: 0) - 페이지 번호 (0부터 시작)
-- size: integer (default: 20, max: 100) - 페이지 크기
-- role: string - 역할 필터 (USER, ADMIN)
-- search: string - 검색어 (이름, 이메일)
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "content": [
-      {
-        "id": 1,
-        "name": "김철수",
-        "email": "kim@company.com",
-        "position": "사원",
-        "role": "USER",
-        "remainingAnnualLeave": 12.0,
-        "createdAt": "2026-03-28T09:00:00Z",
-        "updatedAt": "2026-03-28T09:30:00Z"
-      }
-    ],
-    "page": {
-      "number": 0,
-      "size": 20,
-      "totalElements": 30,
-      "totalPages": 2,
-      "first": true,
-      "last": false
-    }
-  }
-}
-
-Response (403 Forbidden):
-{
-  "success": false,
-  "error": {
-    "code": "ACCESS_DENIED",
-    "message": "해당 리소스에 접근할 권한이 없습니다"
-  }
-}
-```
-
-#### 4.1.2 사용자 상세 조회
-```yaml
-GET /api/v1/users/{userId}
-Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER(본인), ADMIN
-
-Path Parameters:
-- userId: integer (required) - 사용자 ID
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "김철수",
-    "email": "kim@company.com",
-    "position": "사원",
-    "role": "USER",
-    "remainingAnnualLeave": 12.0,
-    "createdAt": "2026-03-28T09:00:00Z",
-    "updatedAt": "2026-03-28T09:30:00Z"
-  }
-}
-```
-
-#### 4.1.3 회원가입
+#### 4.1.1 회원가입
 ```yaml
 POST /api/v1/auth/signup
 Content-Type: application/json
@@ -269,103 +195,118 @@ Public API
 
 Request Body:
 {
-  "id": "testuser01",
-  "name": "김철수",
-  "email": "kim@company.com",
+  "id": "user01",
+  "name": "일반사용자",
+  "email": "user01@test.com",
   "password": "Password123!",
   "position": "사원"
 }
-
-Validation Rules:
-- id: 필수, 4-20자, 중복 불가
-- name: 필수, 2-50자
-- email: 필수, 이메일 형식, 중복 불가
-- password: 필수, 8-20자
-- position: 필수
 
 Response (201 Created):
 {
   "success": true,
   "data": {
-    "id": 51,
-    "name": "김철수",
-    "email": "kim@company.com",
+    "id": 1,
+    "name": "일반사용자",
+    "email": "user01@test.com",
     "position": "사원",
     "role": "USER"
   },
   "message": "회원가입이 완료되었습니다",
-  "timestamp": "2026-03-31T10:03:18.8324988"
-}
-
-Response (409 Conflict):
-{
-  "success": false,
-  "error": {
-    "code": "LOGIN_ID_ALREADY_EXISTS",
-    "message": "이미 사용 중인 아이디입니다."
-  },
-  "timestamp": "2026-03-31T10:03:18.8324988"
-}
-
-Response (409 Conflict):
-{
-  "success": false,
-  "error": {
-    "code": "EMAIL_ALREADY_EXISTS",
-    "message": "이미 사용 중인 이메일입니다."
-  },
-  "timestamp": "2026-03-31T10:03:18.8324988"
+  "timestamp": "..."
 }
 ```
 
-#### 4.1.4 사용자 정보 수정
+#### 4.1.2 로그인
+```yaml
+POST /api/v1/auth/login
+Content-Type: application/json
+Public API
+
+Request Body:
+{
+  "id": "user01",
+  "password": "Password123!"
+}
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "accessToken": "...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "user": {
+      "id": 1,
+      "name": "일반사용자",
+      "email": "user01@test.com",
+      "position": "사원",
+      "role": "USER"
+    }
+  },
+  "message": "로그인이 성공하였습니다",
+  "timestamp": "..."
+}
+```
+
+#### 4.1.3 아이디 찾기
+```yaml
+POST /api/v1/auth/find-id/request
+Content-Type: application/json
+Public API
+
+Request Body:
+{
+  "name": "일반사용자",
+  "email": "user01@test.com"
+}
+
+Response (200 OK):
+{
+  "success": true,
+  "data": { "id": "user01" },
+  "message": "아이디를 찾았습니다",
+  "timestamp": "..."
+}
+```
+
+#### 4.1.4 비밀번호 찾기(3단계)
+```yaml
+POST /api/v1/auth/password/reset/request
+POST /api/v1/auth/password/reset/verify
+POST /api/v1/auth/password/reset/confirm
+```
+- request: 이메일로 인증번호 발송
+- verify: 인증번호 검증 후 `resetProof` 발급
+- confirm: `resetProof`로 새 비밀번호 저장
+
+#### 4.1.5 사용자 목록 조회
+```yaml
+GET /api/v1/users
+Authorization: Bearer {ACCESS_TOKEN}
+```
+- USER: 본인만 조회
+- TEAM_LEADER/ADMIN: 필터 기반 목록 조회
+
+#### 4.1.6 사용자 상세 조회
+```yaml
+GET /api/v1/users/{userId}
+Authorization: Bearer {ACCESS_TOKEN}
+Required Role: 본인 또는 ADMIN
+```
+
+#### 4.1.7 사용자 정보 수정
 ```yaml
 PUT /api/v1/users/{userId}
-Content-Type: application/json
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER(본인), ADMIN
-
-Request Body:
-{
-  "name": "김철수",
-  "position": "대리"
-}
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "김철수",
-    "position": "대리",
-    "updatedAt": "2026-03-28T11:00:00Z"
-  },
-  "message": "사용자 정보가 수정되었습니다"
-}
+Required Role: 본인 또는 ADMIN
 ```
 
-#### 4.1.5 사용자 권한 변경
+#### 4.1.8 사용자 권한 변경
 ```yaml
 PATCH /api/v1/users/{userId}/role
-Content-Type: application/json
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: ADMIN
-
-Request Body:
-{
-  "role": "ADMIN"
-}
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "role": "ADMIN",
-    "updatedAt": "2026-03-28T11:10:00Z"
-  },
-  "message": "사용자 권한이 변경되었습니다"
-}
+Required Role: ADMIN(관리 소장)
 ```
 
 ### 4.2 프로젝트/업무/업무할당 관리 API
@@ -711,272 +652,169 @@ Required Role: ADMIN
 Response (204 No Content)
 ```
 
-### 4.3 캘린더/근태 API
+### 4.3 근태/캘린더 API
 
-#### 4.3.1 캘린더 이벤트 조회
-```yaml
-GET /api/v1/calendar/events
-Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER, ADMIN
-
-Query Parameters:
-- month: string (YYYY-MM)
-
-Response (200 OK):
-{
-  "success": true,
-  "data": [
-    {
-      "date": "2026-03-28",
-      "type": "TASK",
-      "title": "내 업무 화면 구현"
-    },
-    {
-      "date": "2026-04-03",
-      "type": "LEAVE",
-      "title": "연차 사용"
-    }
-  ]
-}
-```
-
-#### 4.3.2 근태 요약 조회
-```yaml
-GET /api/v1/attendance/summary
-Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER, ADMIN
-
-Query Parameters:
-- month: string (YYYY-MM)
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "workDaysCount": 20,
-    "clockInTimes": ["09:01", "08:58"],
-    "clockOutTimes": ["18:20", "18:05"],
-    "leaveUsedCount": 1
-  }
-}
-```
-
-#### 4.3.3 출근 체크인
+#### 4.3.1 출근 체크인
 ```yaml
 POST /api/v1/attendance/check-in
-Content-Type: application/json
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER, ADMIN
 
 Request Body:
 {
-  "workDate": "2026-04-06",
-  "clockInTime": "09:02"
-}
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "workDate": "2026-04-06",
-    "clockInTime": "09:02",
-    "attStatus": "NORMAL"
-  },
-  "message": "출근이 기록되었습니다"
-}
-
-Response (403 Forbidden):
-{
-  "success": false,
-  "error": {
-    "code": "OVERTIME_APPROVAL_REQUIRED",
-    "message": "주말/공휴일 출근은 특근 승인 사용자만 가능합니다"
-  }
+  "workDate": "2026-04-13",
+  "clockInTime": "09:05:00"
 }
 ```
+
+#### 4.3.2 퇴근 체크아웃
+```yaml
+PATCH /api/v1/attendance/check-out?workDate=2026-04-13
+Authorization: Bearer {ACCESS_TOKEN}
+
+Request Body:
+{
+  "clockOutTime": "18:10:00"
+}
+```
+
+#### 4.3.3 출퇴근 기록 수정
+```yaml
+PUT /api/v1/attendance?workDate=2026-04-13
+Authorization: Bearer {ACCESS_TOKEN}
+
+Request Body:
+{
+  "clockInTime": "09:00:00",
+  "clockOutTime": "18:00:00"
+}
+```
+
+#### 4.3.4 근태 요약 조회
+```yaml
+GET /api/v1/attendance/summary?month=2026-04
+Authorization: Bearer {ACCESS_TOKEN}
+```
+
+#### 4.3.5 캘린더 통합 조회(개인)
+```yaml
+GET /api/v1/calendar/events?year=2026&month=4
+Authorization: Bearer {ACCESS_TOKEN}
+```
+- 승인된 연차/특근 통합 조회
+- 월 경계를 걸치는 연차도 포함
 
 ### 4.4 연차 관리 API
 
-#### 4.4.1 잔여 연차 조회
+#### 4.4.1 연차 신청
+```yaml
+POST /api/v1/leave
+Authorization: Bearer {ACCESS_TOKEN}
+
+Request Body:
+{
+  "appType": "ANNUAL",
+  "startDate": "2026-04-06",
+  "endDate": "2026-04-06"
+}
+```
+
+Validation Rules:
+- 신청 기간에 주말/공휴일/대체공휴일 포함 시 거부
+- 에러 코드: `LEAVE_DATE_NOT_WORKING_DAY` (422)
+
+#### 4.4.2 연차 승인
+```yaml
+PATCH /api/v1/leave/{requestId}/approve
+Authorization: Bearer {ACCESS_TOKEN}
+```
+
+#### 4.4.3 연차 반려
+```yaml
+PATCH /api/v1/leave/{requestId}/reject
+Authorization: Bearer {ACCESS_TOKEN}
+```
+
+#### 4.4.4 내 연차 신청 내역 조회
+```yaml
+GET /api/v1/leave/my
+Authorization: Bearer {ACCESS_TOKEN}
+```
+
+#### 4.4.5 연차 신청 내역 조회(권한 필터)
+```yaml
+GET /api/v1/leave/all
+Authorization: Bearer {ACCESS_TOKEN}
+```
+- USER: 본인 내역만
+- TEAM_LEADER/ADMIN: 전체 내역
+
+#### 4.4.6 잔여 연차 조회
 ```yaml
 GET /api/v1/leave/balance
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER, ADMIN
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "totalAnnualLeave": 15.0,
-    "usedAnnualLeave": 3.0,
-    "remainingAnnualLeave": 12.0
-  }
-}
 ```
 
-#### 4.4.2 직급별 연차 기준 조회
+#### 4.4.7 연차 정책 조회
 ```yaml
 GET /api/v1/leave/policy
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER, ADMIN
-
-Response (200 OK):
-{
-  "success": true,
-  "data": [
-    {
-      "position": "사원",
-      "annualLeaveDays": 15
-    },
-    {
-      "position": "대리",
-      "annualLeaveDays": 16
-    }
-  ]
-}
 ```
 
-#### 4.4.3 연차 신청
+### 4.5 특근 관리 API
+
+#### 4.5.1 특근 신청
 ```yaml
-POST /api/v1/leave/requests
-Content-Type: application/json
+POST /api/v1/overtime
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER
 
 Request Body:
 {
-  "leaveType": "ANNUAL",
-  "startDate": "2026-04-03",
-  "endDate": "2026-04-03",
-  "reason": "개인 사유"
+  "overtimeDate": "2026-04-12",
+  "startTime": "19:00:00",
+  "endTime": "21:00:00",
+  "reason": "긴급 대응"
 }
+```
 
 Validation Rules:
-- UI: 주말/공휴일 날짜 선택 불가
-- Server: 신청 기간에 주말/공휴일이 포함되면 요청 거부
+- 평일 특근 신청 불가
+- 에러 코드: `INVALID_OVERTIME_DATE` (400)
 
-Response (201 Created):
-{
-  "success": true,
-  "data": {
-    "id": 9001,
-    "status": "PENDING",
-    "usedDays": 1.0,
-    "calculatedByServer": true,
-    "createdAt": "2026-03-28T17:00:00Z"
-  },
-  "message": "연차 신청이 완료되었습니다"
-}
-
-Response (422 Unprocessable Entity):
-{
-  "success": false,
-  "error": {
-    "code": "LEAVE_DATE_NOT_WORKING_DAY",
-    "message": "주말/공휴일은 연차 사용 일수에 포함할 수 없습니다"
-  }
-}
-```
-
-#### 4.4.4 연차 신청 내역 조회
+#### 4.5.2 특근 단건 조회
 ```yaml
-GET /api/v1/leave/requests/me
+GET /api/v1/overtime/{id}
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: USER
-
-Response (200 OK):
-{
-  "success": true,
-  "data": [
-    {
-      "id": 9001,
-      "leaveType": "ANNUAL",
-      "startDate": "2026-04-03",
-      "endDate": "2026-04-03",
-      "usedDays": 1.0,
-      "status": "REJECTED",
-      "rejectReason": "프로젝트 마감 일정과 중복"
-    }
-  ]
-}
 ```
+- USER: 본인 건만
+- TEAM_LEADER/ADMIN: 전체 조회 가능
 
-#### 4.4.5 연차 신청 전체 조회 (관리자)
+#### 4.5.3 특근 목록 조회(권한 필터)
 ```yaml
-GET /api/v1/leave/requests
+GET /api/v1/overtime/list
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: ADMIN
-
-Query Parameters:
-- status: string (PENDING, APPROVED, REJECTED)
-- requesterId: integer
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "content": [
-      {
-        "id": 9001,
-        "requester": {
-          "id": 1,
-          "name": "김철수"
-        },
-        "usedDays": 1.0,
-        "status": "PENDING"
-      }
-    ]
-  }
-}
 ```
+- USER: 본인 내역만
+- TEAM_LEADER/ADMIN: 전체 내역
 
-#### 4.4.6 연차 승인
+#### 4.5.4 특근 승인
 ```yaml
-PATCH /api/v1/leave/requests/{requestId}/approve
-Content-Type: application/json
+PATCH /api/v1/overtime/{id}/approve
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: ADMIN
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "id": 9001,
-    "status": "APPROVED",
-    "remainingAnnualLeave": 11.0,
-    "approvedAt": "2026-03-28T17:10:00Z"
-  },
-  "message": "연차가 승인되었습니다"
-}
 ```
 
-#### 4.4.7 연차 반려
+#### 4.5.5 특근 반려
 ```yaml
-PATCH /api/v1/leave/requests/{requestId}/reject
-Content-Type: application/json
+PATCH /api/v1/overtime/{id}/reject
 Authorization: Bearer {ACCESS_TOKEN}
-Required Role: ADMIN
-
-Request Body:
-{
-  "rejectReason": "프로젝트 마감 일정과 중복"
-}
-
-Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "id": 9001,
-    "status": "REJECTED",
-    "rejectReason": "프로젝트 마감 일정과 중복"
-  },
-  "message": "연차가 반려되었습니다"
-}
 ```
 
-### 4.5 진행도 시각화 API
+#### 4.5.6 특근 내역 조회(호환)
+```yaml
+GET /api/v1/overtime/my
+Authorization: Bearer {ACCESS_TOKEN}
+```
 
-#### 4.5.1 진행도 대시보드 조회
+### 4.6 진행도 시각화 API
 ```yaml
 GET /api/v1/dashboard/progress
 Authorization: Bearer {ACCESS_TOKEN}
@@ -1146,34 +984,40 @@ public class SwaggerConfig {
 
 ### 9.1 페이지 목록 기준 API 매핑 고정
 - 내 프로젝트/업무 페이지: `GET /projects`, `GET /tasks`, `GET /tasks/{taskId}`, `PATCH /tasks/{taskId}/status`
-- 캘린더 페이지: `GET /calendar/events`, `GET /attendance/summary`, `POST /attendance/check-in`
-- 연차 신청 페이지: `POST /leave/requests`, `GET /leave/balance`, `GET /leave/policy`
-- 연차 신청 내역 페이지: `GET /leave/requests/me`
+- 캘린더 페이지: `GET /calendar/events?year={year}&month={month}`, `GET /attendance/summary?month={yyyy-MM}`, `POST /attendance/check-in`
+- 연차 신청 페이지: `POST /leave`, `GET /leave/balance`, `GET /leave/policy`
+- 연차 신청 내역 페이지: `GET /leave/my`
 - 프로젝트 생성 페이지(ADMIN): `POST /projects`
 - 프로젝트 팀원 배정 페이지(ADMIN): `POST /projects/{projectId}/members`, `DELETE /projects/{projectId}/members/{userId}`
 - 업무 생성 페이지(ADMIN): `POST /tasks`
 - 업무 담당자 배정 페이지(ADMIN): `POST /tasks/{taskId}/assignments`, `DELETE /tasks/{taskId}/assignments/{userId}`
-- 연차 승인 페이지(ADMIN): `GET /leave/requests`, `PATCH /leave/requests/{id}/approve`, `PATCH /leave/requests/{id}/reject`
+- 연차 승인 페이지(TEAM_LEADER/ADMIN): `GET /leave/all`, `PATCH /leave/{id}/approve`, `PATCH /leave/{id}/reject`
+- 특근 승인 페이지(TEAM_LEADER/ADMIN): `GET /overtime/list`, `PATCH /overtime/{id}/approve`, `PATCH /overtime/{id}/reject`
 - 업무 진행도 확인 페이지: `GET /dashboard/progress`, `GET /projects/{projectId}/progress`
 
 ### 9.2 권한 요구사항 기반 접근 제어 재명시
-- USER: 본인에게 할당된 프로젝트/배정된 Task/본인 연차 API만 허용
-- ADMIN: 전체 프로젝트/Task 관리, 프로젝트 팀원 배정, Task 담당자 배정, 전체 연차 신청 조회 및 승인·반려 API 허용
+- USER: 본인에게 할당된 프로젝트/배정된 Task/본인 연차·특근 데이터만 조회 가능
+- TEAM_LEADER: 일반 사용자 결재 처리, 특근/연차 목록 조회(권한 필터 적용)
+- ADMIN(관리 소장): 전체 프로젝트/Task 관리, 사용자 권한 변경, 연차/특근 결재 처리
 
 ### 9.3 핵심 비즈니스 규칙 기반 API 처리 순서
 - 연차 승인 API는 아래 순서로 처리
   1) 신청 상태 검증(`PENDING`)
-  2) 승인 상태 변경
-  3) 잔여 연차 차감
-  4) 하나의 트랜잭션으로 커밋
+  2) 계층 권한 검증(USER→TEAM_LEADER/ADMIN, TEAM_LEADER→ADMIN, ADMIN→본인)
+  3) 승인 상태 변경
+  4) 잔여 연차 차감
+  5) 하나의 트랜잭션으로 커밋
 
 ### 9.4 확정 필요 항목 API 표기
 - 출근 기록 API는 `POST /attendance/check-in`으로 운영
 - 주말/공휴일 출근은 특근 승인 여부를 서버에서 검증하고, 미승인 시 `OVERTIME_APPROVAL_REQUIRED` 반환
+- 특근 신청은 주말만 허용하며, 평일 신청 시 `INVALID_OVERTIME_DATE` 반환
 
 ### 9.5 MVP 포함 기능 API 체크
 - [x] 회원가입
 - [x] 로그인
+- [x] 아이디 찾기
+- [x] 비밀번호 찾기(3단계)
 - [x] 프로젝트 생성/조회
 - [x] 프로젝트 팀원 배정/해제
 - [x] Task 생성/조회/상태 변경
@@ -1181,6 +1025,8 @@ public class SwaggerConfig {
 - [x] 연차 신청
 - [x] 연차 승인/반려
 - [x] 승인 시 연차 차감
+- [x] 특근 신청/단건조회/목록조회
+- [x] 특근 승인/반려
 - [x] 업무 진행도 확인
 - [x] 주말/공휴일 출근 시 특근 승인 검증
 
@@ -1191,7 +1037,7 @@ public class SwaggerConfig {
 4. **usedDays 계산 주체**: 서버 계산(요청 본문 직접 입력 금지)
 5. **인증 방식**: Access Token only
 6. **승인-차감 처리 원칙**: 연차 승인 상태 변경과 연차 차감을 동일 트랜잭션으로 처리
-7. **연차 신청 주말/공휴일 처리**: UI 차단 + 서버 검증으로 이중 방어
+7. **연차 신청 주말/공휴일 처리**: UI 차단 + 서버 검증(공휴일/대체공휴일 포함)으로 이중 방어
 8. **주말/공휴일 출근 처리**: 특근 승인 사용자만 출근 기록 허용
 
 ---
