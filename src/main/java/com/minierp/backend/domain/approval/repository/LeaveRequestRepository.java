@@ -34,4 +34,6 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("endDate") LocalDate endDate);
 
     List<LeaveRequest> findByRequester_Id(Long requesterId);
+
+    long countByAppStatus(LeaveStatus appStatus);
 }

@@ -1,9 +1,13 @@
 package com.minierp.backend.domain.project.service;
 
 import com.minierp.backend.domain.project.dto.ProjectCreateRequestDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.AssignableMemberDto;
+import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.project.entity.ProjectMember;
 import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
@@ -21,7 +25,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -155,6 +161,100 @@ public class ProjectService {
         return users.stream()
                 .filter(user -> !assignedUserIds.contains(user.getId()))
                 .map(user -> ProjectMemberResponseDto.fromUser(projectId, user.getId(), user.getUserName()))
+                .toList();
+    }
+
+    public List<AssignableMemberDto> getAssignableMembers(Long projectId, Long currentUserId, UserRole currentUserRole) {
+        validateAdminOrLeaderRole(currentUserRole);
+        if (currentUserRole.isTeamLeader()) {
+            validateProjectLeader(projectId, currentUserId, currentUserRole);
+        }
+
+        findProjectOrThrow(projectId);
+
+        return projectMemberRepository.findByProjectId(projectId).stream()
+                .map(ProjectMember::getUser)
+                .filter(user -> user.getUserRole().isGeneralUser())
+                .map(AssignableMemberDto::from)
+                .toList();
+    }
+
+    public List<ProjectPermissionDto> getUserProjectPermissions(
+            Long targetUserId,
+            Long currentUserId,
+            UserRole currentUserRole
+    ) {
+        validateAdminOrLeaderRole(currentUserRole);
+
+        List<Project> projects = currentUserRole.isTopManager()
+                ? projectRepository.findAll()
+                : projectRepository.findByLeaderId(currentUserId);
+
+        Set<Long> assignedProjectIds = projectMemberRepository.findByUserId(targetUserId).stream()
+                .map(projectMember -> projectMember.getProject().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        return projects.stream()
+                .map(project -> ProjectPermissionDto.of(project, assignedProjectIds.contains(project.getId())))
+                .toList();
+    }
+
+    @Transactional
+    public void updateUserProjectPermissions(
+            Long targetUserId,
+            ProjectPermissionUpdateRequestDto request,
+            Long currentUserId,
+            UserRole currentUserRole
+    ) {
+        validateAdminOrLeaderRole(currentUserRole);
+
+        User targetUser = findUserOrThrow(targetUserId);
+        if (currentUserRole.isTeamLeader() && !targetUser.getUserRole().isGeneralUser()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "팀장은 팀원(USER)의 권한만 설정할 수 있습니다.");
+        }
+
+        List<Project> manageableProjects = currentUserRole.isTopManager()
+                ? projectRepository.findAll()
+                : projectRepository.findByLeaderId(currentUserId);
+        Set<Long> manageableProjectIds = manageableProjects.stream()
+                .map(Project::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<Long> requestedProjectIds = new HashSet<>(request.getAssignedProjectIds());
+
+        for (Long projectId : requestedProjectIds) {
+            if (!manageableProjectIds.contains(projectId)) {
+                throw new BusinessException(ErrorCode.ACCESS_DENIED, "관리 권한이 없는 프로젝트입니다.");
+            }
+        }
+
+        Set<Long> currentAssignedIds = projectMemberRepository.findByUserId(targetUserId).stream()
+                .map(projectMember -> projectMember.getProject().getId())
+                .filter(manageableProjectIds::contains)
+                .collect(java.util.stream.Collectors.toSet());
+
+        Set<Long> toAdd = new HashSet<>(requestedProjectIds);
+        toAdd.removeAll(currentAssignedIds);
+
+        Set<Long> toRemove = new HashSet<>(currentAssignedIds);
+        toRemove.removeAll(requestedProjectIds);
+
+        for (Long projectId : toAdd) {
+            Project project = findProjectOrThrow(projectId);
+            ProjectMember projectMember = ProjectMember.create(project, targetUser);
+            projectMemberRepository.save(projectMember);
+        }
+
+        for (Long projectId : toRemove) {
+            taskAssignmentRepository.deleteByProjectIdAndUserId(projectId, targetUserId);
+            projectMemberRepository.deleteByProjectIdAndUserId(projectId, targetUserId);
+        }
+    }
+
+    public List<LeaderSummaryDto> getLeaders(UserRole currentUserRole) {
+        validateAdminRole(currentUserRole);
+
+        return userRepository.findByUserRole(UserRole.TEAM_LEADER).stream()
+                .map(leader -> LeaderSummaryDto.of(leader, projectRepository.countByLeaderId(leader.getId())))
                 .toList();
     }
 

@@ -1,9 +1,13 @@
 package com.minierp.backend.domain.project.service;
 
 import com.minierp.backend.domain.project.dto.ProjectCreateRequestDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionDto;
+import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.AssignableMemberDto;
+import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.project.entity.ProjectMember;
 import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
@@ -38,6 +42,7 @@ import java.lang.reflect.Constructor;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -325,6 +330,162 @@ class ProjectServiceTest {
         given(projectMemberRepository.existsByProjectIdAndUserId(projectId, currentUserId)).willReturn(false);
 
         assertThatThrownBy(() -> projectService.getProjectProgress(projectId, currentUserId, UserRole.USER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("ADMIN은 사용자 프로젝트 권한 목록을 전체 프로젝트 기준으로 조회한다")
+    void getUserProjectPermissions_asAdmin_success() {
+        Long targetUserId = 10L;
+        Project firstProject = createProject(1L, "ERP");
+        Project secondProject = createProject(2L, "그룹웨어");
+        User targetUser = createUser(targetUserId);
+        ProjectMember projectMember = createProjectMember(100L, secondProject, targetUser);
+        given(projectRepository.findAll()).willReturn(List.of(firstProject, secondProject));
+        given(projectMemberRepository.findByUserId(targetUserId)).willReturn(List.of(projectMember));
+
+        List<ProjectPermissionDto> responses = projectService.getUserProjectPermissions(
+                targetUserId,
+                1L,
+                UserRole.ADMIN
+        );
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.stream().filter(ProjectPermissionDto::isAssigned).map(ProjectPermissionDto::getProjectId))
+                .containsExactly(2L);
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER는 본인 담당 프로젝트 범위에서 사용자 권한 목록을 조회한다")
+    void getUserProjectPermissions_asTeamLeader_success() {
+        Long targetUserId = 10L;
+        Long leaderId = 20L;
+        Project managedProject = createProject(1L, "ERP");
+        ReflectionTestUtils.setField(managedProject, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        User targetUser = createUser(targetUserId);
+        ProjectMember projectMember = createProjectMember(200L, managedProject, targetUser);
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(managedProject));
+        given(projectMemberRepository.findByUserId(targetUserId)).willReturn(List.of(projectMember));
+
+        List<ProjectPermissionDto> responses = projectService.getUserProjectPermissions(
+                targetUserId,
+                leaderId,
+                UserRole.TEAM_LEADER
+        );
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).isAssigned()).isTrue();
+    }
+
+    @Test
+    @DisplayName("ADMIN은 사용자 프로젝트 권한을 일괄 저장할 수 있다")
+    void updateUserProjectPermissions_asAdmin_success() {
+        Long targetUserId = 10L;
+        User targetUser = createUser(targetUserId, UserRole.USER);
+        Project project1 = createProject(1L, "ERP");
+        Project project2 = createProject(2L, "그룹웨어");
+        Project project3 = createProject(3L, "모바일");
+
+        ProjectMember currentMember1 = createProjectMember(100L, project1, targetUser);
+        ProjectMember currentMember2 = createProjectMember(101L, project2, targetUser);
+
+        given(userRepository.findById(targetUserId)).willReturn(Optional.of(targetUser));
+        given(projectRepository.findAll()).willReturn(List.of(project1, project2, project3));
+        given(projectMemberRepository.findByUserId(targetUserId)).willReturn(List.of(currentMember1, currentMember2));
+        given(projectRepository.findById(3L)).willReturn(Optional.of(project3));
+
+        projectService.updateUserProjectPermissions(
+                targetUserId,
+                ProjectPermissionUpdateRequestDto.of(List.of(2L, 3L)),
+                1L,
+                UserRole.ADMIN
+        );
+
+        verify(projectMemberRepository).save(any(ProjectMember.class));
+        verify(taskAssignmentRepository).deleteByProjectIdAndUserId(1L, targetUserId);
+        verify(projectMemberRepository).deleteByProjectIdAndUserId(1L, targetUserId);
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER는 USER만 권한 일괄 저장할 수 있다")
+    void updateUserProjectPermissions_asTeamLeaderWithNonUser_throwsAccessDenied() {
+        Long targetUserId = 10L;
+        given(userRepository.findById(targetUserId)).willReturn(Optional.of(createUser(targetUserId, UserRole.TEAM_LEADER)));
+
+        assertThatThrownBy(() -> projectService.updateUserProjectPermissions(
+                targetUserId,
+                ProjectPermissionUpdateRequestDto.of(List.of(1L)),
+                20L,
+                UserRole.TEAM_LEADER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER가 관리 범위 밖 프로젝트 권한을 설정하면 예외가 발생한다")
+    void updateUserProjectPermissions_withOutOfScopeProject_throwsAccessDenied() {
+        Long targetUserId = 10L;
+        Long leaderId = 20L;
+        User targetUser = createUser(targetUserId, UserRole.USER);
+        Project managedProject = createProject(1L, "ERP");
+        ReflectionTestUtils.setField(managedProject, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        given(userRepository.findById(targetUserId)).willReturn(Optional.of(targetUser));
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(managedProject));
+
+        assertThatThrownBy(() -> projectService.updateUserProjectPermissions(
+                targetUserId,
+                ProjectPermissionUpdateRequestDto.of(List.of(1L, 2L)),
+                leaderId,
+                UserRole.TEAM_LEADER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("배정 가능한 팀원 목록 조회 시 USER 역할만 반환한다")
+    void getAssignableMembers_returnsOnlyUserRole() {
+        Long projectId = 1L;
+        Long leaderId = 20L;
+        Project project = createProject(projectId, "ERP");
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+
+        ProjectMember userMember = createProjectMember(1L, project, createUser(10L, UserRole.USER));
+        ProjectMember leaderMember = createProjectMember(2L, project, createUser(11L, UserRole.TEAM_LEADER));
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+        given(projectMemberRepository.findByProjectId(projectId)).willReturn(List.of(userMember, leaderMember));
+
+        List<AssignableMemberDto> responses = projectService.getAssignableMembers(projectId, leaderId, UserRole.TEAM_LEADER);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getUserId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("ADMIN은 팀장 목록과 담당 프로젝트 수를 조회할 수 있다")
+    void getLeaders_asAdmin_success() {
+        User leader1 = createUser(20L, UserRole.TEAM_LEADER);
+        User leader2 = createUser(21L, UserRole.TEAM_LEADER);
+        given(userRepository.findByUserRole(UserRole.TEAM_LEADER)).willReturn(List.of(leader1, leader2));
+        given(projectRepository.countByLeaderId(20L)).willReturn(2L);
+        given(projectRepository.countByLeaderId(21L)).willReturn(1L);
+
+        List<LeaderSummaryDto> responses = projectService.getLeaders(UserRole.ADMIN);
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses).extracting(LeaderSummaryDto::getAssignedProjectCount)
+                .containsExactly(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("USER는 팀장 목록을 조회할 수 없다")
+    void getLeaders_asUser_throwsAccessDenied() {
+        assertThatThrownBy(() -> projectService.getLeaders(UserRole.USER))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ACCESS_DENIED));

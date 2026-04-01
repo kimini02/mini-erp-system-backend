@@ -5,6 +5,7 @@ import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.dto.TaskAssignmentResponseDto;
 import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
+import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.entity.Task;
@@ -178,6 +179,28 @@ public class TaskService {
         }
 
         taskAssignmentRepository.deleteByTaskIdAndUserId(taskId, userId);
+    }
+
+    public List<RecentAssignmentDto> getRecentAssignments(Long currentUserId, UserRole currentUserRole) {
+        if (currentUserRole == null || currentUserRole.isGeneralUser()) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        List<TaskAssignment> assignments;
+        if (currentUserRole.isTopManager()) {
+            assignments = taskAssignmentRepository.findTop10ByOrderByCreatedAtDesc();
+        } else {
+            List<Long> projectIds = projectRepository.findByLeaderId(currentUserId).stream()
+                    .map(Project::getId)
+                    .toList();
+            assignments = projectIds.isEmpty()
+                    ? List.of()
+                    : taskAssignmentRepository.findTop10ByTaskProjectIdInOrderByCreatedAtDesc(projectIds);
+        }
+
+        return assignments.stream()
+                .map(RecentAssignmentDto::from)
+                .toList();
     }
 
     private void validateAdminRole(UserRole currentUserRole) {
