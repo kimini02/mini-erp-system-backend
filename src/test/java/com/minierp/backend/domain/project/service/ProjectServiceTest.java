@@ -13,7 +13,7 @@ import com.minierp.backend.domain.project.entity.ProjectMember;
 import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.entity.Task;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import com.minierp.backend.domain.task.repository.TaskAssignmentRepository;
 import com.minierp.backend.domain.task.repository.TaskRepository;
@@ -86,6 +86,7 @@ class ProjectServiceTest {
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
                 LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM,
                 leaderId
         );
         given(userRepository.findById(leaderId)).willReturn(Optional.of(leader));
@@ -110,7 +111,9 @@ class ProjectServiceTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM,
+                null
         );
 
         assertThatThrownBy(() -> projectService.createProject(request, UserRole.USER))
@@ -128,6 +131,7 @@ class ProjectServiceTest {
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
                 LocalDate.of(2026, 4, 30),
+                Priority.HIGH,
                 leaderId
         );
         given(userRepository.findById(leaderId)).willReturn(Optional.of(createUser(leaderId, UserRole.USER)));
@@ -496,7 +500,8 @@ class ProjectServiceTest {
                 title,
                 "설명",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
         );
         ReflectionTestUtils.setField(project, "id", id);
         return project;
@@ -534,7 +539,7 @@ class ProjectServiceTest {
                 "업무 내용",
                 LocalDate.of(2026, 4, 2),
                 taskStatus,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 project
         );
         ReflectionTestUtils.setField(task, "id", id);

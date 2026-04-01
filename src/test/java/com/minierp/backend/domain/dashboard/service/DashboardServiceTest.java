@@ -9,7 +9,7 @@ import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.project.entity.ProjectStatus;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.entity.Task;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import com.minierp.backend.domain.task.repository.TaskRepository;
 import com.minierp.backend.domain.user.entity.UserRole;
@@ -182,7 +182,7 @@ class DashboardServiceTest {
                 "업무 내용",
                 LocalDate.of(2026, 4, 2),
                 taskStatus,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 project
         );
         ReflectionTestUtils.setField(task, "id", id);

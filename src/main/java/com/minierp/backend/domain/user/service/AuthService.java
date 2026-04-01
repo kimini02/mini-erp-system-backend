@@ -68,7 +68,7 @@ public class AuthService {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getLoginId(), user.getUserRole().name());
+        String accessToken = jwtTokenProvider.generateAccessToken(String.valueOf(user.getId()), user.getUserRole().name());
         return LoginResponseDto.of(
                 accessToken,
                 jwtTokenProvider.getAccessTokenExpirationSeconds(),

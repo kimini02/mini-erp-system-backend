@@ -3,12 +3,15 @@ package com.minierp.backend.domain.project.entity;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.user.entity.User;
 import com.minierp.backend.global.entity.BaseEntity;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import com.minierp.backend.domain.task.entity.TaskStatus;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -36,6 +39,10 @@ public class Project extends BaseEntity {
     @Column(nullable = false)
     private ProjectStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Priority priority;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "leader_id")
     private User leader;
@@ -50,9 +57,10 @@ public class Project extends BaseEntity {
             String title,
             String content,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            Priority priority
     ) {
-        return create(title, content, startDate, endDate, null);
+        return create(title, content, startDate, endDate, priority, null);
     }
 
     public static Project create(
@@ -60,6 +68,7 @@ public class Project extends BaseEntity {
             String content,
             LocalDate startDate,
             LocalDate endDate,
+            Priority priority,
             User leader
     ) {
         Project project = new Project();
@@ -68,6 +77,7 @@ public class Project extends BaseEntity {
         project.startDate = startDate;
         project.endDate = endDate;
         project.status = ProjectStatus.READY;
+        project.priority = priority == null ? Priority.MEDIUM : priority;
         project.leader = leader;
         project.validatePeriod();
         return project;
@@ -79,6 +89,23 @@ public class Project extends BaseEntity {
 
     public void assignLeader(User leader) {
         this.leader = leader;
+    }
+
+    public void updateStatusByTasks() {
+        if (tasks.isEmpty()) {
+            return;
+        }
+        boolean allDone = tasks.stream()
+                .allMatch(task -> task.getTaskStatus() == TaskStatus.DONE);
+        if (allDone) {
+            this.status = ProjectStatus.DONE;
+        } else if (this.status == ProjectStatus.READY) {
+            boolean anyStarted = tasks.stream()
+                    .anyMatch(task -> task.getTaskStatus() != TaskStatus.TODO);
+            if (anyStarted) {
+                this.status = ProjectStatus.PROGRESS;
+            }
+        }
     }
 
     @PrePersist

@@ -3,7 +3,7 @@ package com.minierp.backend.domain.task.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -24,7 +24,7 @@ public class TaskResponseDto {
     @JsonProperty("taskState")
     private TaskStatus taskStatus;
 
-    private TaskPriority priority;
+    private Priority priority;
     private LocalDate endDate;
     private List<AssigneeSummaryDto> assignees;
 

@@ -2,7 +2,7 @@ package com.minierp.backend.domain.task.dto;
 
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -18,7 +18,7 @@ public class RecentAssignmentDto {
     private String projectTitle;
     private String assigneeName;
     private LocalDate endDate;
-    private TaskPriority priority;
+    private Priority priority;
     private LocalDateTime createdAt;
 
     public static RecentAssignmentDto from(TaskAssignment assignment) {

@@ -1,5 +1,6 @@
 package com.minierp.backend.domain.project.dto;
 
+import com.minierp.backend.global.entity.Priority;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
@@ -23,22 +24,16 @@ public class ProjectCreateRequestDto {
     @NotNull(message = "프로젝트 종료일은 필수입니다.")
     private LocalDate endDate;
 
+    private Priority priority;
+
     private Long leaderId;
 
     public static ProjectCreateRequestDto of(
             String title,
             String content,
             LocalDate startDate,
-            LocalDate endDate
-    ) {
-        return of(title, content, startDate, endDate, null);
-    }
-
-    public static ProjectCreateRequestDto of(
-            String title,
-            String content,
-            LocalDate startDate,
             LocalDate endDate,
+            Priority priority,
             Long leaderId
     ) {
         ProjectCreateRequestDto dto = new ProjectCreateRequestDto();
@@ -46,6 +41,7 @@ public class ProjectCreateRequestDto {
         dto.content = content;
         dto.startDate = startDate;
         dto.endDate = endDate;
+        dto.priority = priority;
         dto.leaderId = leaderId;
         return dto;
     }
