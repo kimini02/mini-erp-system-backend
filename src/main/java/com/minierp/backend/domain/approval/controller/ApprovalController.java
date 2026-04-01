@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/leave")
@@ -20,20 +21,27 @@ public class ApprovalController {
 
     /**
      * 연차 신청 생성
-     * POST /api/v1/leave
      */
     @PostMapping
     public ResponseEntity<LeaveRequestResponseDto> createLeaveRequest(
             @RequestBody LeaveRequestCreateDto dto,
-            @RequestHeader("X-User-Id") Long userId) { // 현재는 단순 헤더로 ID 전달 (추후 시큐리티 적용 가능)
+            @RequestHeader("X-User-Id") Long userId) {
         
         LeaveRequestResponseDto response = approvalService.createLeaveRequest(dto, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
+     * [비즈니스 규칙 4] 직급별 연차 기준 조회
+     * GET /api/v1/leave/policy
+     */
+    @GetMapping("/policy")
+    public ResponseEntity<Map<String, Integer>> getLeavePolicy() {
+        return ResponseEntity.ok(approvalService.getLeavePolicy());
+    }
+
+    /**
      * 연차 승인
-     * PATCH /api/v1/leave/{requestId}/approve
      */
     @PatchMapping("/{requestId}/approve")
     public ResponseEntity<Void> approveLeaveRequest(
@@ -46,7 +54,6 @@ public class ApprovalController {
 
     /**
      * 연차 반려
-     * PATCH /api/v1/leave/{requestId}/reject
      */
     @PatchMapping("/{requestId}/reject")
     public ResponseEntity<Void> rejectLeaveRequest(
@@ -60,7 +67,6 @@ public class ApprovalController {
 
     /**
      * 내 신청 내역 조회
-     * GET /api/v1/leave/my
      */
     @GetMapping("/my")
     public ResponseEntity<List<LeaveRequestResponseDto>> getMyLeaveRequests(
@@ -72,7 +78,6 @@ public class ApprovalController {
 
     /**
      * 전체 결재 내역 조회 (관리자용)
-     * GET /api/v1/leave/all
      */
     @GetMapping("/all")
     public ResponseEntity<List<LeaveRequestResponseDto>> getAllLeaveRequests() {

@@ -11,7 +11,14 @@ public enum ErrorCode {
     // Overtime
     OVERTIME_NOT_FOUND(HttpStatus.NOT_FOUND, "O001", "특근 신청 내역을 찾을 수 없습니다."),
     INVALID_OVERTIME_TIME(HttpStatus.BAD_REQUEST, "O002", "종료 시간이 시작 시간보다 빠를 수 없습니다."),
-    OVERTIME_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "O003", "이미 승인 또는 반려된 요청입니다.");
+    OVERTIME_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "O003", "이미 승인 또는 반려된 요청입니다."),
+
+    // Approval (Leave)
+    LEAVE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "L001", "결재 요청을 찾을 수 없습니다."),
+    SELF_APPROVAL_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "L002", "본인의 연차는 직접 결재할 수 없습니다."),
+    INSUFFICIENT_ANNUAL_LEAVE(HttpStatus.BAD_REQUEST, "L003", "잔여 연차가 부족합니다."),
+    REJECT_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "L004", "반려 사유를 반드시 입력해야 합니다."),
+    ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "L005", "이미 처리된 결재 건입니다.");
 
     private final HttpStatus status;
     private final String code;
