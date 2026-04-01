@@ -86,4 +86,16 @@ public class User extends BaseEntity {
     public void updatePassword(String newEncodedPassword) {
         this.userPw = newEncodedPassword;
     }
+
+    public void deductAnnualLeave(BigDecimal usedDays) {
+        if (usedDays == null || usedDays.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("차감할 연차 일수가 유효하지 않습니다.");
+        }
+        if (remainingAnnualLeave.compareTo(usedDays) < 0) {
+            throw new IllegalArgumentException("잔여 연차가 부족합니다.");
+        }
+
+        this.usedAnnualLeave = this.usedAnnualLeave.add(usedDays);
+        this.remainingAnnualLeave = this.remainingAnnualLeave.subtract(usedDays);
+    }
 }
