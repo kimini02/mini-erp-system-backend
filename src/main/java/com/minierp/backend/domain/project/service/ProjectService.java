@@ -6,6 +6,7 @@ import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.AvailableMemberResponseDto;
 import com.minierp.backend.domain.project.dto.AssignableMemberDto;
 import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.entity.Project;
@@ -57,6 +58,7 @@ public class ProjectService {
                 request.getContent(),
                 request.getStartDate(),
                 request.getEndDate(),
+                request.getPriority(),
                 leader
         );
 
@@ -147,7 +149,7 @@ public class ProjectService {
                 .toList();
     }
 
-    public List<ProjectMemberResponseDto> getAvailableMembers(Long projectId, Long currentUserId, UserRole currentUserRole) {
+    public List<AvailableMemberResponseDto> getAvailableMembers(Long projectId, Long currentUserId, UserRole currentUserRole) {
         validateAdminOrLeaderRole(currentUserRole);
         validateProjectLeader(projectId, currentUserId, currentUserRole);
 
@@ -160,7 +162,7 @@ public class ProjectService {
 
         return users.stream()
                 .filter(user -> !assignedUserIds.contains(user.getId()))
-                .map(user -> ProjectMemberResponseDto.fromUser(projectId, user.getId(), user.getUserName()))
+                .map(AvailableMemberResponseDto::from)
                 .toList();
     }
 

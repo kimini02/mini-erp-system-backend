@@ -1,6 +1,7 @@
 package com.minierp.backend.domain.project.entity;
 
 import com.minierp.backend.domain.user.entity.User;
+import com.minierp.backend.global.entity.Priority;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +19,8 @@ class ProjectMemberTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
         );
         User user = createUser();
 

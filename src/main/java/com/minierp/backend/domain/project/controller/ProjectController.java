@@ -6,6 +6,7 @@ import com.minierp.backend.domain.project.dto.MemberRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectCreateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectPermissionDto;
 import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
+import com.minierp.backend.domain.project.dto.AvailableMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
@@ -96,11 +97,11 @@ public class ProjectController {
     }
 
     @GetMapping("/{projectId}/members/available")
-    public ResponseEntity<ApiResponse<List<ProjectMemberResponseDto>>> getAvailableMembers(
+    public ResponseEntity<ApiResponse<List<AvailableMemberResponseDto>>> getAvailableMembers(
             @PathVariable Long projectId,
             Authentication authentication
     ) {
-        List<ProjectMemberResponseDto> response = projectService.getAvailableMembers(
+        List<AvailableMemberResponseDto> response = projectService.getAvailableMembers(
                 projectId,
                 extractUserId(authentication),
                 extractUserRole(authentication)

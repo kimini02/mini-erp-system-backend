@@ -9,8 +9,7 @@ public enum ProjectStatus {
 
     READY("준비"),
     PROGRESS("진행 중"),
-    DONE("완료"),
-    HOLD("보류");
+    DONE("완료");
 
     private final String description;
 }

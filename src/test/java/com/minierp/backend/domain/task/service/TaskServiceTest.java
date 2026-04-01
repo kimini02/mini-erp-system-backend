@@ -10,7 +10,7 @@ import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import com.minierp.backend.domain.task.repository.TaskAssignmentRepository;
 import com.minierp.backend.domain.task.repository.TaskRepository;
@@ -85,7 +85,7 @@ class TaskServiceTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.HIGH,
+                Priority.HIGH,
                 List.of(10L, 11L)
         );
 
@@ -105,7 +105,7 @@ class TaskServiceTest {
         assertThat(response.getId()).isEqualTo(100L);
         assertThat(response.getProjectId()).isEqualTo(projectId);
         assertThat(response.getTaskTitle()).isEqualTo("내 업무 화면 구현");
-        assertThat(response.getPriority()).isEqualTo(TaskPriority.HIGH);
+        assertThat(response.getPriority()).isEqualTo(Priority.HIGH);
         assertThat(response.getAssignees()).hasSize(2);
         assertThat(response.getAssignees()).extracting(TaskResponseDto.AssigneeSummaryDto::getUserName)
                 .containsExactly("사용자10", "사용자11");
@@ -120,7 +120,7 @@ class TaskServiceTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.HIGH,
+                Priority.HIGH,
                 List.of(10L, 10L)
         );
 
@@ -143,7 +143,7 @@ class TaskServiceTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.HIGH,
+                Priority.HIGH,
                 List.of(userId)
         );
 
@@ -366,7 +366,7 @@ class TaskServiceTest {
                 "팀장 권한 검증",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 List.of(10L)
         );
 
@@ -396,7 +396,7 @@ class TaskServiceTest {
                 "팀장 권한 검증",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 List.of(10L)
         );
         given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
@@ -435,7 +435,7 @@ class TaskServiceTest {
                 "업무 내용",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 project
         );
         ReflectionTestUtils.setField(task, "id", 1L);
@@ -468,7 +468,8 @@ class TaskServiceTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
         );
         ReflectionTestUtils.setField(project, "id", id);
         return project;
@@ -480,7 +481,7 @@ class TaskServiceTest {
                 "업무 내용",
                 LocalDate.of(2026, 4, 2),
                 taskStatus,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 createProject(projectId)
         );
         ReflectionTestUtils.setField(task, "id", id);

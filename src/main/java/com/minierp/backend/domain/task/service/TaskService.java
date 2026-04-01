@@ -112,16 +112,15 @@ public class TaskService {
         Task task = findTaskOrThrow(taskId);
         if (currentUserRole == UserRole.ADMIN) {
             task.changeStatus(request.getTaskStatus());
-            return TaskResponseDto.from(task);
-        }
-        if (currentUserRole == UserRole.TEAM_LEADER) {
+        } else if (currentUserRole == UserRole.TEAM_LEADER) {
             validateProjectLeaderForTask(task.getProject().getId(), currentUserId);
             task.changeStatus(request.getTaskStatus());
-            return TaskResponseDto.from(task);
+        } else {
+            validateTaskAccess(task, currentUserId, currentUserRole);
+            task.changeStatus(request.getTaskStatus());
         }
 
-        validateTaskAccess(task, currentUserId, currentUserRole);
-        task.changeStatus(request.getTaskStatus());
+        task.getProject().updateStatusByTasks();
         return TaskResponseDto.from(task);
     }
 

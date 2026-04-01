@@ -2,6 +2,7 @@ package com.minierp.backend.domain.task.entity;
 
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.global.entity.BaseEntity;
+import com.minierp.backend.global.entity.Priority;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -32,7 +33,7 @@ public class Task extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TaskPriority priority;
+    private Priority priority;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
@@ -46,7 +47,7 @@ public class Task extends BaseEntity {
             String taskContent,
             LocalDate endDate,
             TaskStatus taskStatus,
-            TaskPriority priority,
+            Priority priority,
             Project project
     ) {
         Task task = new Task();

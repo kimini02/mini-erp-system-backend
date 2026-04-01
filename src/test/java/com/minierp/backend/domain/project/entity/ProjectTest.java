@@ -1,5 +1,6 @@
 package com.minierp.backend.domain.project.entity;
 
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +20,8 @@ class ProjectTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
         );
 
         assertThat(project.getTitle()).isEqualTo("ERP 재구축");
@@ -27,6 +29,7 @@ class ProjectTest {
         assertThat(project.getStartDate()).isEqualTo(LocalDate.of(2026, 3, 31));
         assertThat(project.getEndDate()).isEqualTo(LocalDate.of(2026, 4, 30));
         assertThat(project.getStatus()).isEqualTo(ProjectStatus.READY);
+        assertThat(project.getPriority()).isEqualTo(Priority.MEDIUM);
     }
 
     @Test
@@ -36,7 +39,8 @@ class ProjectTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 4, 30),
-                LocalDate.of(2026, 3, 31)
+                LocalDate.of(2026, 3, 31),
+                Priority.HIGH
         ))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
@@ -50,7 +54,8 @@ class ProjectTest {
                 "ERP 재구축",
                 "사내 업무 시스템 고도화",
                 LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 4, 30)
+                LocalDate.of(2026, 4, 30),
+                Priority.LOW
         );
 
         project.changeStatus(ProjectStatus.PROGRESS);

@@ -22,12 +22,4 @@ public class ProjectMemberResponseDto {
         );
     }
 
-    public static ProjectMemberResponseDto fromUser(Long projectId, Long userId, String userName) {
-        return new ProjectMemberResponseDto(
-                null,
-                projectId,
-                userId,
-                userName
-        );
-    }
 }

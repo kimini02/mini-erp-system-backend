@@ -1,11 +1,11 @@
-package com.minierp.backend.domain.task.entity;
+package com.minierp.backend.global.entity;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum TaskPriority {
+public enum Priority {
 
     HIGH("높음"),
     MEDIUM("중간"),

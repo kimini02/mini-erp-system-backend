@@ -1,7 +1,7 @@
 package com.minierp.backend.domain.task.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.minierp.backend.domain.task.entity.TaskPriority;
+import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -33,7 +33,7 @@ public class TaskCreateRequestDto {
     private TaskStatus taskStatus;
 
     @NotNull(message = "우선순위는 필수입니다.")
-    private TaskPriority priority;
+    private Priority priority;
 
     @NotEmpty(message = "담당자 ID 목록은 비어 있을 수 없습니다.")
     private List<Long> assigneeIds;
@@ -44,7 +44,7 @@ public class TaskCreateRequestDto {
             String taskContent,
             LocalDate endDate,
             TaskStatus taskStatus,
-            TaskPriority priority,
+            Priority priority,
             List<Long> assigneeIds
     ) {
         TaskCreateRequestDto dto = new TaskCreateRequestDto();

@@ -2,6 +2,7 @@ package com.minierp.backend.domain.task.entity;
 
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.user.entity.User;
+import com.minierp.backend.global.entity.Priority;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -20,12 +21,13 @@ class TaskAssignmentTest {
                 "React 페이지 및 API 연동",
                 LocalDate.of(2026, 4, 2),
                 TaskStatus.TODO,
-                TaskPriority.MEDIUM,
+                Priority.MEDIUM,
                 Project.create(
                         "ERP 재구축",
                         "사내 업무 시스템 고도화",
                         LocalDate.of(2026, 3, 31),
-                        LocalDate.of(2026, 4, 30)
+                        LocalDate.of(2026, 4, 30),
+                        Priority.MEDIUM
                 )
         );
         User user = createUser();
