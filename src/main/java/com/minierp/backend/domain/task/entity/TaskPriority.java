@@ -5,11 +5,11 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum TaskStatus {
+public enum TaskPriority {
 
-    TODO("할 일"),
-    DOING("진행 중"),
-    DONE("완료");
+    HIGH("높음"),
+    MEDIUM("중간"),
+    LOW("낮음");
 
     private final String description;
 }
