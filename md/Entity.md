@@ -28,6 +28,44 @@
 - **검증 프레임워크**: Bean Validation 2.0
 - **감사 기능**: Spring Data JPA Auditing
 
+### 1.4 DTO 명명 일관성 (코드 기준)
+
+본 문서에서 참조하는 API DTO 이름은 아래 클래스명을 기준으로 통일합니다.
+
+### 인증/계정 DTO
+- 회원가입: `SignupRequestDto`, `UserResponseDto`
+- 로그인: `LoginRequestDto`, `LoginResponseDto`
+- 아이디 찾기: `FindIdRequestDto`, `FindIdResponseDto`
+- 비밀번호 재설정:
+  - 요청: `PasswordResetRequestDto`, `PasswordResetRequestResponseDto`
+  - 검증: `PasswordResetVerifyDto`, `PasswordResetVerifyResponseDto`
+  - 확정: `PasswordResetConfirmDto`, `PasswordResetConfirmResponseDto`
+
+> 참고: `FindEmailRequestDto`, `FindPasswordRequestDto`는 현재 미사용이며 정리되었습니다.
+
+### 사용자 관리 DTO
+- 목록: `UserListResponseDto`
+- 상세/수정: `UserResponseDto`, `UserUpdateRequestDto`
+- 권한 변경: `UserRoleUpdateRequestDto`, `UserRoleUpdateResponseDto`
+
+### 근태 DTO
+- 출근: `CheckInRequestDto`, `CheckInResponseDto`
+- 퇴근: `CheckOutRequestDto`, `CheckOutResponseDto`
+- 수정: `AttendanceUpdateRequestDto`, `AttendanceUpdateResponseDto`
+- 요약: `AttendanceSummaryDto`
+
+### 연차 DTO
+- 신청/응답: `LeaveRequestCreateDto`, `LeaveRequestResponseDto`
+- 반려: `RejectRequestDto`
+- 잔여: `LeaveBalanceResponseDto`
+- 정책: `LeavePolicyResponseDto`
+
+### 특근 DTO
+- 신청/응답: `OvertimeRequestDto`, `OvertimeResponseDto`
+
+### 캘린더 DTO
+- 이벤트 응답: `CalendarEventResponseDto`
+
 ---
 
 ## 2. Entity 목록 및 분류
@@ -193,10 +231,9 @@ public class Project extends BaseEntity {
     }
 }
 
-```
-
 
 ```
+
 ### 4.3 Task Entity
 
 #### 4.3.1 필드 상세 명세

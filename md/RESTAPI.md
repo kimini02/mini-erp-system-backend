@@ -176,10 +176,11 @@ Response (401 Unauthorized):
 - 클라이언트는 토큰 제거로 로그아웃을 처리하고, 만료/서명 검증 실패 토큰은 서버가 거부합니다.
 
 ### 3.2 권한 레벨 정의
-| 역할 | 권한 | 설명 |
-|------|------|------|
-| **USER** | 일반 사용자 | 본인에게 할당된 프로젝트/업무 조회, 배정된 Task 상태 변경, 본인 연차 신청/조회 |
-| **ADMIN** | 관리자 | 프로젝트 생성, 프로젝트 팀원 배정, Task 생성/담당자 배정, 연차 승인/반려 |
+| 역할 | 권한 | 설명 | 주요 기능 |
+|------|------|------|----------|
+| **USER** | 일반 사용자 | 본인에게 할당된 데이터만 조회/신청 | • 본인 투입 프로젝트/배정 Task 조회<br/>• Task 상태 변경<br/>• 본인 연차/특근 신청/조회 |
+| **TEAM_LEADER** | 팀장 | 일반 사용자 결재, 전체 목록 조회, 업무 배정 권한 | • 일반 사용자의 연차/특근 승인/반려<br/>• 전체 연차/특근 목록 조회<br/>• 업무 배정 가능 |
+| **ADMIN** | 관리 소장 | 최상위 관리자, 모든 권한 | • 프로젝트 생성/관리<br/>• 사용자 권한 변경<br/>• 팀장/관리소장의 연차/특근 승인<br/>• 전체 사용자/프로젝트 관리 |
 
 ---
 
@@ -188,6 +189,8 @@ Response (401 Unauthorized):
 ### 4.1 인증/사용자 관리 API
 
 #### 4.1.1 회원가입
+- Request DTO: `SignupRequestDto`
+- Response DTO: `UserResponseDto`
 ```yaml
 POST /api/v1/auth/signup
 Content-Type: application/json
@@ -218,6 +221,8 @@ Response (201 Created):
 ```
 
 #### 4.1.2 로그인
+- Request DTO: `LoginRequestDto`
+- Response DTO: `LoginResponseDto`
 ```yaml
 POST /api/v1/auth/login
 Content-Type: application/json
@@ -250,6 +255,8 @@ Response (200 OK):
 ```
 
 #### 4.1.3 아이디 찾기
+- Request DTO: `FindIdRequestDto`
+- Response DTO: `FindIdResponseDto`
 ```yaml
 POST /api/v1/auth/find-id/request
 Content-Type: application/json
@@ -271,16 +278,22 @@ Response (200 OK):
 ```
 
 #### 4.1.4 비밀번호 찾기(3단계)
+- Request DTO
+  - 요청: `PasswordResetRequestDto`
+  - 검증: `PasswordResetVerifyDto`
+  - 확정: `PasswordResetConfirmDto`
+- Response DTO
+  - 요청: `PasswordResetRequestResponseDto`
+  - 검증: `PasswordResetVerifyResponseDto`
+  - 확정: `PasswordResetConfirmResponseDto`
 ```yaml
 POST /api/v1/auth/password/reset/request
 POST /api/v1/auth/password/reset/verify
 POST /api/v1/auth/password/reset/confirm
 ```
-- request: 이메일로 인증번호 발송
-- verify: 인증번호 검증 후 `resetProof` 발급
-- confirm: `resetProof`로 새 비밀번호 저장
 
 #### 4.1.5 사용자 목록 조회
+- Response DTO: `UserListResponseDto`
 ```yaml
 GET /api/v1/users
 Authorization: Bearer {ACCESS_TOKEN}
@@ -289,6 +302,7 @@ Authorization: Bearer {ACCESS_TOKEN}
 - TEAM_LEADER/ADMIN: 필터 기반 목록 조회
 
 #### 4.1.6 사용자 상세 조회
+- Response DTO: `UserResponseDto`
 ```yaml
 GET /api/v1/users/{userId}
 Authorization: Bearer {ACCESS_TOKEN}
@@ -296,6 +310,8 @@ Required Role: 본인 또는 ADMIN
 ```
 
 #### 4.1.7 사용자 정보 수정
+- Request DTO: `UserUpdateRequestDto`
+- Response DTO: `UserResponseDto`
 ```yaml
 PUT /api/v1/users/{userId}
 Authorization: Bearer {ACCESS_TOKEN}
@@ -303,6 +319,8 @@ Required Role: 본인 또는 ADMIN
 ```
 
 #### 4.1.8 사용자 권한 변경
+- Request DTO: `UserRoleUpdateRequestDto`
+- Response DTO: `UserRoleUpdateResponseDto`
 ```yaml
 PATCH /api/v1/users/{userId}/role
 Authorization: Bearer {ACCESS_TOKEN}
@@ -655,6 +673,8 @@ Response (204 No Content)
 ### 4.3 근태/캘린더 API
 
 #### 4.3.1 출근 체크인
+- Request DTO: `CheckInRequestDto`
+- Response DTO: `CheckInResponseDto`
 ```yaml
 POST /api/v1/attendance/check-in
 Authorization: Bearer {ACCESS_TOKEN}
@@ -667,6 +687,8 @@ Request Body:
 ```
 
 #### 4.3.2 퇴근 체크아웃
+- Request DTO: `CheckOutRequestDto`
+- Response DTO: `CheckOutResponseDto`
 ```yaml
 PATCH /api/v1/attendance/check-out?workDate=2026-04-13
 Authorization: Bearer {ACCESS_TOKEN}
@@ -678,6 +700,8 @@ Request Body:
 ```
 
 #### 4.3.3 출퇴근 기록 수정
+- Request DTO: `AttendanceUpdateRequestDto`
+- Response DTO: `AttendanceUpdateResponseDto`
 ```yaml
 PUT /api/v1/attendance?workDate=2026-04-13
 Authorization: Bearer {ACCESS_TOKEN}
@@ -690,12 +714,14 @@ Request Body:
 ```
 
 #### 4.3.4 근태 요약 조회
+- Response DTO: `AttendanceSummaryDto`
 ```yaml
 GET /api/v1/attendance/summary?month=2026-04
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.3.5 캘린더 통합 조회(개인)
+- Response DTO: `CalendarEventResponseDto`
 ```yaml
 GET /api/v1/calendar/events?year=2026&month=4
 Authorization: Bearer {ACCESS_TOKEN}
@@ -706,6 +732,8 @@ Authorization: Bearer {ACCESS_TOKEN}
 ### 4.4 연차 관리 API
 
 #### 4.4.1 연차 신청
+- Request DTO: `LeaveRequestCreateDto`
+- Response DTO: `LeaveRequestResponseDto`
 ```yaml
 POST /api/v1/leave
 Authorization: Bearer {ACCESS_TOKEN}
@@ -723,24 +751,29 @@ Validation Rules:
 - 에러 코드: `LEAVE_DATE_NOT_WORKING_DAY` (422)
 
 #### 4.4.2 연차 승인
+- Response DTO: `LeaveRequestResponseDto`
 ```yaml
 PATCH /api/v1/leave/{requestId}/approve
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.4.3 연차 반려
+- Request DTO: `RejectRequestDto`
+- Response DTO: `LeaveRequestResponseDto`
 ```yaml
 PATCH /api/v1/leave/{requestId}/reject
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.4.4 내 연차 신청 내역 조회
+- Response DTO: `List<LeaveRequestResponseDto>`
 ```yaml
 GET /api/v1/leave/my
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.4.5 연차 신청 내역 조회(권한 필터)
+- Response DTO: `List<LeaveRequestResponseDto>`
 ```yaml
 GET /api/v1/leave/all
 Authorization: Bearer {ACCESS_TOKEN}
@@ -749,12 +782,14 @@ Authorization: Bearer {ACCESS_TOKEN}
 - TEAM_LEADER/ADMIN: 전체 내역
 
 #### 4.4.6 잔여 연차 조회
+- Response DTO: `LeaveBalanceResponseDto`
 ```yaml
 GET /api/v1/leave/balance
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.4.7 연차 정책 조회
+- Response DTO: `List<LeavePolicyResponseDto>`
 ```yaml
 GET /api/v1/leave/policy
 Authorization: Bearer {ACCESS_TOKEN}
@@ -763,6 +798,8 @@ Authorization: Bearer {ACCESS_TOKEN}
 ### 4.5 특근 관리 API
 
 #### 4.5.1 특근 신청
+- Request DTO: `OvertimeRequestDto`
+- Response DTO: `OvertimeResponseDto`
 ```yaml
 POST /api/v1/overtime
 Authorization: Bearer {ACCESS_TOKEN}
@@ -781,6 +818,7 @@ Validation Rules:
 - 에러 코드: `INVALID_OVERTIME_DATE` (400)
 
 #### 4.5.2 특근 단건 조회
+- Response DTO: `OvertimeResponseDto`
 ```yaml
 GET /api/v1/overtime/{id}
 Authorization: Bearer {ACCESS_TOKEN}
@@ -789,6 +827,7 @@ Authorization: Bearer {ACCESS_TOKEN}
 - TEAM_LEADER/ADMIN: 전체 조회 가능
 
 #### 4.5.3 특근 목록 조회(권한 필터)
+- Response DTO: `List<OvertimeResponseDto>`
 ```yaml
 GET /api/v1/overtime/list
 Authorization: Bearer {ACCESS_TOKEN}
@@ -797,18 +836,21 @@ Authorization: Bearer {ACCESS_TOKEN}
 - TEAM_LEADER/ADMIN: 전체 내역
 
 #### 4.5.4 특근 승인
+- Response DTO: `OvertimeResponseDto`
 ```yaml
 PATCH /api/v1/overtime/{id}/approve
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.5.5 특근 반려
+- Response DTO: `OvertimeResponseDto`
 ```yaml
 PATCH /api/v1/overtime/{id}/reject
 Authorization: Bearer {ACCESS_TOKEN}
 ```
 
 #### 4.5.6 특근 내역 조회(호환)
+- Response DTO: `List<OvertimeResponseDto>`
 ```yaml
 GET /api/v1/overtime/my
 Authorization: Bearer {ACCESS_TOKEN}
