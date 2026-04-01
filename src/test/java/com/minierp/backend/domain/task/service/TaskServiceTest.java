@@ -5,6 +5,7 @@ import com.minierp.backend.domain.project.repository.ProjectMemberRepository;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
 import com.minierp.backend.domain.task.dto.TaskAssignmentResponseDto;
 import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
+import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.entity.Task;
@@ -401,6 +402,62 @@ class TaskServiceTest {
         given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> taskService.createTask(request, leaderId, UserRole.TEAM_LEADER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("ADMIN은 최근 업무 배정 이력을 조회할 수 있다")
+    void getRecentAssignments_asAdmin_success() {
+        Task task = createTask(1L, 1L, TaskStatus.TODO);
+        User user = createUser(10L, UserRole.USER);
+        TaskAssignment assignment = TaskAssignment.create(task, user);
+        ReflectionTestUtils.setField(assignment, "id", 100L);
+
+        given(taskAssignmentRepository.findTop10ByOrderByCreatedAtDesc()).willReturn(List.of(assignment));
+
+        List<RecentAssignmentDto> responses = taskService.getRecentAssignments(1L, UserRole.ADMIN);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getTaskId()).isEqualTo(1L);
+        assertThat(responses.get(0).getAssigneeName()).isEqualTo("사용자10");
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER는 본인 담당 프로젝트의 최근 업무 배정 이력만 조회한다")
+    void getRecentAssignments_asTeamLeader_success() {
+        Long leaderId = 20L;
+        Project project = createProject(1L);
+        ReflectionTestUtils.setField(project, "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        Task task = Task.create(
+                "업무 제목",
+                "업무 내용",
+                LocalDate.of(2026, 4, 2),
+                TaskStatus.TODO,
+                TaskPriority.MEDIUM,
+                project
+        );
+        ReflectionTestUtils.setField(task, "id", 1L);
+
+        User user = createUser(10L, UserRole.USER);
+        TaskAssignment assignment = TaskAssignment.create(task, user);
+        ReflectionTestUtils.setField(assignment, "id", 100L);
+
+        given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(project));
+        given(taskAssignmentRepository.findTop10ByTaskProjectIdInOrderByCreatedAtDesc(List.of(1L)))
+                .willReturn(List.of(assignment));
+
+        List<RecentAssignmentDto> responses = taskService.getRecentAssignments(leaderId, UserRole.TEAM_LEADER);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getProjectTitle()).isEqualTo("ERP 재구축");
+    }
+
+    @Test
+    @DisplayName("USER는 최근 업무 배정 이력을 조회할 수 없다")
+    void getRecentAssignments_asUser_throwsAccessDenied() {
+        assertThatThrownBy(() -> taskService.getRecentAssignments(10L, UserRole.USER))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.ACCESS_DENIED));

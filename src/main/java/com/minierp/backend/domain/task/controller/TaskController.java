@@ -3,6 +3,7 @@ package com.minierp.backend.domain.task.controller;
 import com.minierp.backend.domain.task.dto.TaskAssignmentRequestDto;
 import com.minierp.backend.domain.task.dto.TaskAssignmentResponseDto;
 import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
+import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
 import com.minierp.backend.domain.task.service.TaskService;
@@ -121,6 +122,15 @@ public class TaskController {
     ) {
         taskService.removeAssignment(taskId, userId, extractUserId(authentication), extractUserRole(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/recent-assignments")
+    public ResponseEntity<ApiResponse<List<RecentAssignmentDto>>> getRecentAssignments(Authentication authentication) {
+        List<RecentAssignmentDto> response = taskService.getRecentAssignments(
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "최근 업무 배정 이력 조회가 완료되었습니다."));
     }
 
     private Long extractUserId(Authentication authentication) {
