@@ -19,7 +19,6 @@ public class OvertimeController {
 
     /**
      * 특근 신청
-     * POST /api/v1/overtime
      */
     @PostMapping
     public ResponseEntity<OvertimeResponseDto> requestOvertime(
@@ -31,8 +30,17 @@ public class OvertimeController {
     }
 
     /**
+     * 특근 단건 조회
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<OvertimeResponseDto> getOvertimeRequest(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long accessorId) {
+        return ResponseEntity.ok(overtimeService.getOvertimeRequest(id, accessorId));
+    }
+
+    /**
      * 특근 승인
-     * PATCH /api/v1/overtime/{id}/approve
      */
     @PatchMapping("/{id}/approve")
     public ResponseEntity<Void> approveOvertime(
@@ -45,7 +53,6 @@ public class OvertimeController {
 
     /**
      * 특근 반려
-     * PATCH /api/v1/overtime/{id}/reject
      */
     @PatchMapping("/{id}/reject")
     public ResponseEntity<Void> rejectOvertime(
@@ -57,14 +64,19 @@ public class OvertimeController {
     }
 
     /**
-     * 내 특근 신청 내역 조회
-     * GET /api/v1/overtime/my
+     * 특근 내역 조회 (권한별 필터링)
      */
-    @GetMapping("/my")
-    public ResponseEntity<List<OvertimeResponseDto>> getMyOvertimeRequests(
+    @GetMapping("/list")
+    public ResponseEntity<List<OvertimeResponseDto>> getOvertimeRequests(
             @RequestHeader("X-User-Id") Long userId) {
         
-        List<OvertimeResponseDto> response = overtimeService.getMyOvertimeRequests(userId);
+        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequests(userId);
         return ResponseEntity.ok(response);
+    }
+
+    @Deprecated
+    @GetMapping("/my")
+    public ResponseEntity<List<OvertimeResponseDto>> getMyOvertimeRequests(@RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(overtimeService.getOvertimeRequests(userId));
     }
 }

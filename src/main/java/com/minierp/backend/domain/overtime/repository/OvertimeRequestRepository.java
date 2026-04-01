@@ -9,6 +9,10 @@ import java.util.List;
 
 public interface OvertimeRequestRepository extends JpaRepository<OvertimeRequest, Long> {
     List<OvertimeRequest> findByRequester_Id(Long requesterId);
+    
     List<OvertimeRequest> findByRequester_IdAndStatusAndOvertimeDateBetween(
             Long requesterId, OvertimeStatus status, LocalDate start, LocalDate end);
+            
+    // 전사 캘린더용: 특정 기간의 모든 승인된 특근 조회
+    List<OvertimeRequest> findByStatusAndOvertimeDateBetween(OvertimeStatus status, LocalDate start, LocalDate end);
 }

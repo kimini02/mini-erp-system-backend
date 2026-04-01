@@ -6,6 +6,7 @@ import com.minierp.backend.domain.approval.dto.RejectRequestDto;
 import com.minierp.backend.domain.approval.entity.LeaveRequest;
 import com.minierp.backend.domain.approval.repository.LeaveRequestRepository;
 import com.minierp.backend.domain.user.entity.User;
+import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
@@ -41,13 +42,30 @@ public class ApprovalService {
                 .endDate(dto.getEndDate())
                 .build();
 
-        // [비즈니스 규칙 2] 잔여 연차 검증
         if (requester.getRemainingAnnualLeave().compareTo(leaveRequest.getUsedDays()) < 0) {
             throw new BusinessException(ErrorCode.INSUFFICIENT_ANNUAL_LEAVE);
         }
         
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
         return LeaveRequestResponseDto.from(savedRequest);
+    }
+
+    /**
+     * 연차 단건 조회 (권한 방어)
+     */
+    public LeaveRequestResponseDto getLeaveRequest(Long requestId, Long accessorId) {
+        LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.LEAVE_REQUEST_NOT_FOUND));
+        
+        User accessor = userRepository.findById(accessorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // [방어 로직] USER 권한인데 본인 내역이 아니라면 차단
+        if (accessor.getUserRole() == UserRole.USER && !leaveRequest.getRequester().getId().equals(accessorId)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        return LeaveRequestResponseDto.from(leaveRequest);
     }
 
     /**
@@ -61,15 +79,15 @@ public class ApprovalService {
         User approver = userRepository.findById(approverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // [비즈니스 규칙 1] 본인 결재 차단
+        if (approver.getUserRole() == UserRole.USER) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        }
+
         if (leaveRequest.getRequester().getId().equals(approverId)) {
             throw new BusinessException(ErrorCode.SELF_APPROVAL_NOT_ALLOWED);
         }
 
-        // 1. LeaveRequest 상태 변경
         leaveRequest.approve(approver);
-
-        // 2. User 엔티티의 연차 차감
         User requester = leaveRequest.getRequester();
         requester.deductAnnualLeave(leaveRequest.getUsedDays());
     }
@@ -79,7 +97,6 @@ public class ApprovalService {
      */
     @Transactional
     public void rejectLeaveRequest(Long requestId, Long approverId, RejectRequestDto rejectDto) {
-        // [비즈니스 규칙 3] 반려 사유 필수 검증
         if (rejectDto.getRejectReason() == null || rejectDto.getRejectReason().isBlank()) {
             throw new BusinessException(ErrorCode.REJECT_REASON_REQUIRED);
         }
@@ -90,7 +107,10 @@ public class ApprovalService {
         User approver = userRepository.findById(approverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // [비즈니스 규칙 1] 본인 결재 차단
+        if (approver.getUserRole() == UserRole.USER) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        }
+
         if (leaveRequest.getRequester().getId().equals(approverId)) {
             throw new BusinessException(ErrorCode.SELF_APPROVAL_NOT_ALLOWED);
         }
@@ -99,7 +119,7 @@ public class ApprovalService {
     }
 
     /**
-     * [비즈니스 규칙 4] 직급별 연차 기준 반환
+     * 직급별 연차 기준 반환
      */
     public Map<String, Integer> getLeavePolicy() {
         Map<String, Integer> policy = new LinkedHashMap<>();
@@ -111,14 +131,20 @@ public class ApprovalService {
         return policy;
     }
 
-    public List<LeaveRequestResponseDto> getMyLeaveRequests(Long userId) {
-        return leaveRequestRepository.findAll().stream()
-                .filter(req -> req.getRequester().getId().equals(userId))
-                .map(LeaveRequestResponseDto::from)
-                .collect(Collectors.toList());
-    }
+    /**
+     * 연차 내역 조회 (권한별 필터링)
+     */
+    public List<LeaveRequestResponseDto> getLeaveRequests(Long accessorId) {
+        User accessor = userRepository.findById(accessorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-    public List<LeaveRequestResponseDto> getAllLeaveRequests() {
+        // [필터링 로직] USER 권한이면 본인 내역만, 관리자면 전체 내역 조회
+        if (accessor.getUserRole() == UserRole.USER) {
+            return leaveRequestRepository.findByRequester_Id(accessorId).stream()
+                    .map(LeaveRequestResponseDto::from)
+                    .collect(Collectors.toList());
+        }
+
         return leaveRequestRepository.findAll().stream()
                 .map(LeaveRequestResponseDto::from)
                 .collect(Collectors.toList());

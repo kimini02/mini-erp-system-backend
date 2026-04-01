@@ -16,16 +16,16 @@ public class CalendarController {
     private final CalendarService calendarService;
 
     /**
-     * 캘린더 통합 이벤트 조회 (연차 + 특근)
+     * 전사 통합 캘린더 이벤트 조회
      * GET /api/v1/calendar/events?year=2026&month=3
      */
     @GetMapping("/events")
     public ResponseEntity<List<CalendarEventResponseDto>> getCalendarEvents(
-            @RequestHeader("X-User-Id") Long userId,
             @RequestParam int year,
             @RequestParam int month) {
         
-        List<CalendarEventResponseDto> events = calendarService.getCalendarEvents(userId, year, month);
+        // 전사 공유 달력이므로 userId 파라미터나 헤더 없이 모든 승인 내역 조회
+        List<CalendarEventResponseDto> events = calendarService.getCalendarEvents(year, month);
         return ResponseEntity.ok(events);
     }
 }

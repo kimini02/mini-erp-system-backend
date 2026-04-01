@@ -1,6 +1,8 @@
 package com.minierp.backend.domain.user.entity;
 
 import com.minierp.backend.global.entity.BaseEntity;
+import com.minierp.backend.global.exception.BusinessException;
+import com.minierp.backend.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -65,7 +67,7 @@ public class User extends BaseEntity {
      */
     public void deductAnnualLeave(BigDecimal days) {
         if (remainingAnnualLeave.compareTo(days) < 0) {
-            throw new IllegalArgumentException("잔여 연차가 부족합니다. (현재 잔여: " + remainingAnnualLeave + "일)");
+            throw new BusinessException(ErrorCode.INSUFFICIENT_ANNUAL_LEAVE);
         }
         this.usedAnnualLeave = this.usedAnnualLeave.add(days);
         this.remainingAnnualLeave = this.remainingAnnualLeave.subtract(days);

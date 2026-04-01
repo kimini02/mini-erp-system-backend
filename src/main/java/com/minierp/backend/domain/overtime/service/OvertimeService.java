@@ -6,6 +6,7 @@ import com.minierp.backend.domain.overtime.entity.OvertimeRequest;
 import com.minierp.backend.domain.overtime.entity.OvertimeStatus;
 import com.minierp.backend.domain.overtime.repository.OvertimeRequestRepository;
 import com.minierp.backend.domain.user.entity.User;
+import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
@@ -29,7 +30,6 @@ public class OvertimeService {
      */
     @Transactional
     public OvertimeResponseDto requestOvertime(OvertimeRequestDto dto, Long requesterId) {
-        // 방어 코드: 시작 시간이 종료 시간보다 늦을 경우
         if (dto.getEndTime().isBefore(dto.getStartTime())) {
             throw new BusinessException(ErrorCode.INVALID_OVERTIME_TIME);
         }
@@ -49,6 +49,24 @@ public class OvertimeService {
     }
 
     /**
+     * 특근 단건 조회 (권한 방어)
+     */
+    public OvertimeResponseDto getOvertimeRequest(Long requestId, Long accessorId) {
+        OvertimeRequest request = overtimeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OVERTIME_NOT_FOUND));
+        
+        User accessor = userRepository.findById(accessorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // [방어 로직] USER 권한인데 본인 내역이 아니라면 차단
+        if (accessor.getUserRole() == UserRole.USER && !request.getRequester().getId().equals(accessorId)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        return OvertimeResponseDto.from(request);
+    }
+
+    /**
      * 특근 승인
      */
     @Transactional
@@ -58,6 +76,10 @@ public class OvertimeService {
 
         User approver = userRepository.findById(approverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (approver.getUserRole() == UserRole.USER) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        }
 
         request.approve(approver);
     }
@@ -73,14 +95,28 @@ public class OvertimeService {
         User approver = userRepository.findById(approverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        if (approver.getUserRole() == UserRole.USER) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_APPROVER);
+        }
+
         request.reject(approver);
     }
 
     /**
-     * 내 특근 내역 조회
+     * 특근 내역 조회 (권한별 필터링)
      */
-    public List<OvertimeResponseDto> getMyOvertimeRequests(Long userId) {
-        return overtimeRequestRepository.findByRequester_Id(userId).stream()
+    public List<OvertimeResponseDto> getOvertimeRequests(Long accessorId) {
+        User accessor = userRepository.findById(accessorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // [필터링 로직] USER 권한이면 본인 내역만, 관리자면 전체 내역 조회
+        if (accessor.getUserRole() == UserRole.USER) {
+            return overtimeRequestRepository.findByRequester_Id(accessorId).stream()
+                    .map(OvertimeResponseDto::from)
+                    .collect(Collectors.toList());
+        }
+
+        return overtimeRequestRepository.findAll().stream()
                 .map(OvertimeResponseDto::from)
                 .collect(Collectors.toList());
     }

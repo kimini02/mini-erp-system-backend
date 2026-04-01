@@ -32,8 +32,17 @@ public class ApprovalController {
     }
 
     /**
-     * [비즈니스 규칙 4] 직급별 연차 기준 조회
-     * GET /api/v1/leave/policy
+     * 연차 단건 조회
+     */
+    @GetMapping("/{requestId}")
+    public ResponseEntity<LeaveRequestResponseDto> getLeaveRequest(
+            @PathVariable Long requestId,
+            @RequestHeader("X-User-Id") Long accessorId) {
+        return ResponseEntity.ok(approvalService.getLeaveRequest(requestId, accessorId));
+    }
+
+    /**
+     * 직급별 연차 기준 조회
      */
     @GetMapping("/policy")
     public ResponseEntity<Map<String, Integer>> getLeavePolicy() {
@@ -66,22 +75,21 @@ public class ApprovalController {
     }
 
     /**
-     * 내 신청 내역 조회
+     * 연차 내역 조회 (권한별 필터링)
+     * GET /api/v1/leave/list
      */
-    @GetMapping("/my")
-    public ResponseEntity<List<LeaveRequestResponseDto>> getMyLeaveRequests(
+    @GetMapping("/list")
+    public ResponseEntity<List<LeaveRequestResponseDto>> getLeaveRequests(
             @RequestHeader("X-User-Id") Long userId) {
         
-        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequests(userId);
+        List<LeaveRequestResponseDto> response = approvalService.getLeaveRequests(userId);
         return ResponseEntity.ok(response);
     }
-
-    /**
-     * 전체 결재 내역 조회 (관리자용)
-     */
-    @GetMapping("/all")
-    public ResponseEntity<List<LeaveRequestResponseDto>> getAllLeaveRequests() {
-        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequests();
-        return ResponseEntity.ok(response);
+    
+    // 이전 /my, /all 통합 처리 (/list로 대체 가능하지만 하위 호환을 위해 유지 가능)
+    @Deprecated
+    @GetMapping("/my")
+    public ResponseEntity<List<LeaveRequestResponseDto>> getMyLeaveRequests(@RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(approvalService.getLeaveRequests(userId));
     }
 }
