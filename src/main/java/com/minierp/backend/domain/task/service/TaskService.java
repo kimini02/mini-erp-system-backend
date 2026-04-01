@@ -25,6 +25,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 업무(Task) 서비스
+ * - Task 생성/조회/상태변경 및 담당자(TaskAssignment) 관리
+ * - 역할별 접근 제어: ADMIN(전체), TEAM_LEADER(담당 프로젝트만), USER(배정된 Task만)
+ * - Task 상태 변경 시 프로젝트 상태도 자동 갱신
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -36,6 +42,7 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
+    // Task 생성: ADMIN 또는 담당 팀장만 가능, 배정자는 해당 프로젝트 멤버여야 함
     @Transactional
     public TaskResponseDto createTask(TaskCreateRequestDto request, Long currentUserId, UserRole currentUserRole) {
         validateAdminOrLeaderRole(currentUserRole);
@@ -71,6 +78,7 @@ public class TaskService {
         return TaskResponseDto.from(savedTask);
     }
 
+    // Task 목록 조회: ADMIN=전체, TEAM_LEADER=담당 프로젝트의 Task, USER=본인 배정 Task
     public List<TaskResponseDto> getTasks(Long currentUserId, UserRole currentUserRole) {
         if (currentUserRole == UserRole.ADMIN) {
             return taskRepository.findAll().stream()
@@ -102,6 +110,7 @@ public class TaskService {
         return TaskResponseDto.from(task);
     }
 
+    // Task 상태 변경 + 프로젝트 상태 자동 갱신 (READY→PROGRESS→DONE)
     @Transactional
     public TaskResponseDto changeTaskStatus(
             Long taskId,
@@ -120,6 +129,7 @@ public class TaskService {
             task.changeStatus(request.getTaskStatus());
         }
 
+        // Task 상태가 바뀌면 프로젝트 상태도 자동으로 갱신
         task.getProject().updateStatusByTasks();
         return TaskResponseDto.from(task);
     }
