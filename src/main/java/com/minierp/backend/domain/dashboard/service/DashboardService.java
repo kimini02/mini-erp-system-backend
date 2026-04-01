@@ -27,6 +27,12 @@ import java.util.Map;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
 
+/**
+ * 대시보드 서비스
+ * - Task 상태별 통계 (TODO/DOING/DONE 개수 + 진행률)
+ * - 관리자 요약: ADMIN=전체 통계, TEAM_LEADER=담당 프로젝트 기준 통계
+ * - 대시보드 프로젝트 목록: 진행 중(PROGRESS) 우선, 마감일순 상위 5개
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -48,6 +54,7 @@ public class DashboardService {
         return DashboardResponseDto.of(taskStatusStats);
     }
 
+    // 관리자 요약: ADMIN=전체 사용자/프로젝트/Task 통계, TEAM_LEADER=담당 프로젝트 기준
     public AdminDashboardResponseDto getAdminSummary(Long currentUserId, UserRole currentUserRole) {
         if (currentUserRole == null || currentUserRole.isGeneralUser()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
@@ -88,6 +95,7 @@ public class DashboardService {
         );
     }
 
+    // 대시보드 프로젝트 카드: 진행 중 우선 → 마감일순 정렬, 상위 5개 + 진척률 포함
     public List<DashboardProjectDto> getDashboardProjects(Long currentUserId, UserRole currentUserRole) {
         if (currentUserRole == null || currentUserRole.isGeneralUser()) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);

@@ -456,6 +456,253 @@ Headers:
 
 ---
 
+## 10) 프로젝트 관리 (김민희 파트)
+
+### 10-1) 프로젝트 생성 (ADMIN만 가능)
+`POST {{baseUrl}}/api/v1/projects`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "title": "ERP 시스템 고도화",
+  "content": "사내 업무 시스템 리뉴얼",
+  "startDate": "2026-04-01",
+  "endDate": "2026-06-30",
+  "priority": "HIGH",
+  "leaderId": 2
+}
+```
+
+> `priority`: `HIGH`, `MEDIUM`, `LOW` 중 선택 (미입력 시 MEDIUM)
+> `leaderId`: 팀장(TEAM_LEADER) 역할의 userId (선택)
+
+기대:
+- `201 Created`
+- `data.id`를 `projectId`로 메모
+
+### 10-2) 프로젝트 목록 조회
+`GET {{baseUrl}}/api/v1/projects`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- ADMIN: 전체 프로젝트 목록
+- TEAM_LEADER: 본인 담당 프로젝트만
+- USER: 본인이 배정된 프로젝트만
+
+### 10-3) 팀장 목록 조회 (ADMIN만 가능)
+`GET {{baseUrl}}/api/v1/projects/leaders`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- 팀장 목록 + 각 팀장의 담당 프로젝트 수
+
+### 10-4) 프로젝트 멤버 배정 (ADMIN 또는 담당 팀장)
+`POST {{baseUrl}}/api/v1/projects/{projectId}/members`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "userId": 4
+}
+```
+
+기대:
+- `200 OK`
+- 같은 유저 중복 배정 시 → `DUPLICATE_PROJECT_MEMBER`
+- 팀장이 다른 프로젝트에 배정 시도 → `403`
+
+### 10-5) 프로젝트 멤버 목록 조회
+`GET {{baseUrl}}/api/v1/projects/{projectId}/members`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- 해당 프로젝트에 배정된 멤버 목록
+
+### 10-6) 배정 가능 멤버 조회 (아직 프로젝트에 미배정된 USER)
+`GET {{baseUrl}}/api/v1/projects/{projectId}/members/available`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- `userId`, `userName`만 반환 (프로젝트에 아직 배정 안 된 팀원만)
+
+### 10-7) 프로젝트 멤버 제거
+`DELETE {{baseUrl}}/api/v1/projects/{projectId}/members/{userId}`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- `200 OK`
+- 해당 유저의 Task 배정도 함께 삭제됨
+
+### 10-8) 프로젝트 진행률 조회
+`GET {{baseUrl}}/api/v1/projects/{projectId}/progress`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- `totalTasks`, `doneTasks`, `progressRate` 반환
+
+---
+
+## 11) 업무(Task) 관리 (김민희 파트)
+
+### 11-1) Task 생성 (ADMIN 또는 담당 팀장)
+`POST {{baseUrl}}/api/v1/tasks`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "projectId": 1,
+  "taskTitle": "내 업무 화면 구현",
+  "taskContent": "React 페이지 및 API 연동",
+  "endDate": "2026-04-30",
+  "priority": "HIGH",
+  "assigneeIds": [4],
+  "taskState": "TODO"
+}
+```
+
+> `assigneeIds`: 해당 프로젝트에 멤버로 배정된 userId 목록
+> `taskState`: `TODO`, `DOING`, `DONE` (미입력 시 TODO)
+> `priority`: `HIGH`, `MEDIUM`, `LOW`
+
+기대:
+- `201 Created`
+- `data.id`를 `taskId`로 메모
+
+### 11-2) Task 목록 조회
+`GET {{baseUrl}}/api/v1/tasks`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- ADMIN: 전체 Task
+- TEAM_LEADER: 본인 담당 프로젝트의 Task만
+- USER: 본인에게 배정된 Task만
+
+### 11-3) Task 상세 조회
+`GET {{baseUrl}}/api/v1/tasks/{taskId}`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- Task 상세 정보 + 담당자 목록
+
+### 11-4) Task 상태 변경
+`PATCH {{baseUrl}}/api/v1/tasks/{taskId}/status`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "taskState": "DOING"
+}
+```
+
+기대:
+- Task 상태 변경 성공
+- **프로젝트 상태 자동 변경**: Task가 DOING으로 바뀌면 프로젝트도 READY → PROGRESS
+- 모든 Task가 DONE이면 프로젝트도 → DONE
+
+### 11-5) Task 담당자 추가 배정
+`POST {{baseUrl}}/api/v1/tasks/{taskId}/assignments`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "userId": 5
+}
+```
+
+기대:
+- 해당 프로젝트 멤버만 배정 가능
+- 중복 배정 시 → `DUPLICATE_ASSIGNMENT`
+
+### 11-6) Task 담당자 목록 조회
+`GET {{baseUrl}}/api/v1/tasks/{taskId}/assignments`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+### 11-7) Task 담당자 배정 해제
+`DELETE {{baseUrl}}/api/v1/tasks/{taskId}/assignments/{userId}`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+---
+
+## 12) 대시보드 (김민희 파트)
+
+### 12-1) 대시보드 진행률 (Task 상태별 통계)
+`GET {{baseUrl}}/api/v1/dashboard/stats`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- `todoCount`, `doingCount`, `doneCount`, `progressRate` 반환
+
+### 12-2) 관리자 대시보드 요약
+`GET {{baseUrl}}/api/v1/dashboard/admin/summary`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- ADMIN: `totalUsers`, `activeProjectCount`, `pendingApprovalCount`, `taskCompletionRate` 등
+- TEAM_LEADER: 본인 프로젝트 기준 통계
+- USER: `403`
+
+### 12-3) 대시보드 프로젝트 목록 (상위 5개)
+`GET {{baseUrl}}/api/v1/dashboard/projects`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- 진행 중(PROGRESS) 우선, 마감일순 정렬
+- 각 프로젝트별 진척률 포함
+
+### 12-4) 최근 업무 배정 내역
+`GET {{baseUrl}}/api/v1/tasks/assignments/recent`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+
+기대:
+- ADMIN: 전체 최근 배정 10건
+- TEAM_LEADER: 본인 프로젝트 최근 배정 10건
+- USER: `403`
+
+---
+
 ## 9) 문제 발생 시 빠른 확인
 
 1. `401 Unauthorized`: 토큰 누락/만료 확인
@@ -464,3 +711,6 @@ Headers:
 4. `400`: 평일 특근 신청(`INVALID_OVERTIME_DATE`) 또는 잘못된 입력값
 5. 비밀번호 재설정: `verificationCode`/`resetProof` 값과 만료 시간 확인
 6. 로그인 직후 권한이 반영 안 되면 서버 재시작 후 재로그인
+
+---
+
