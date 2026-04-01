@@ -39,6 +39,7 @@
 | **Task** | 핵심 | 높음 | 중간 | 1순위 |
 | **TaskAssignment** | 핵심 | 높음 | 낮음 | 1순위 |
 | **Approval(LeaveRequest)** | 핵심 | 높음 | 높음 | 1순위 |
+| **OvertimeRequest** | 핵심 | 높음 | 중간 | 1순위 |
 | **Attendance** | 지원 | 중간 | 중간 | 2순위 |
 
 ### 2.2 Entity 상속 구조
@@ -99,14 +100,18 @@ public class User extends BaseEntity {
 #### 4.1.2 필드 상세 명세
 | 필드명 | 데이터 타입 | 컬럼명 | 제약조건 | 설명 | 비즈니스 규칙 |
 |--------|-------------|--------|----------|------|---------------|
-| **id** | `Long` | `user_id` | PK, NOT NULL, AUTO_INCREMENT | 사용자 식별자 | 시스템 자동 생성 |
+| **id** | `Long` | `id` | PK, NOT NULL, AUTO_INCREMENT | 사용자 식별자 | 시스템 자동 생성 |
+| **loginId** | `String` | `login_id` | UNIQUE, NOT NULL, LENGTH(50) | 로그인 아이디 | 4-20자, 중복 불가 |
 | **userName** | `String` | `user_name` | NOT NULL, LENGTH(50) | 사용자명 | 2-50자 |
-| **userEmail** | `String` | `user_email` | UNIQUE, NOT NULL, LENGTH(100) | 이메일 | 로그인 ID |
+| **userEmail** | `String` | `user_email` | UNIQUE, NOT NULL, LENGTH(100) | 이메일 | 중복 불가 |
 | **userPw** | `String` | `user_pw` | NOT NULL, LENGTH(255) | 암호화 비밀번호 | BCrypt 암호화 |
-| **positionName** | `String` | `position_name` | NOT NULL, LENGTH(30) | 직책 | 사원/대리/과장/팀장 |
-| **assignRole** | `String` | `assign_role` | NULL 허용, LENGTH(30) | 프로젝트 권한 | PM, Member 등 |
-| **userRole** | `UserRole` | `user_role` | NOT NULL, ENUM | 역할 | USER, ADMIN |
+| **positionName** | `String` | `position_name` | NOT NULL, LENGTH(30) | 직책 | 사원/대리/과장/팀장/관리소장 |
+| **assignRole** | `String` | `assign_role` | NULL 허용, LENGTH(30) | 업무 배정 역할 | 프로젝트/특근 관련 보조 역할 |
+| **userRole** | `UserRole` | `user_role` | NOT NULL, ENUM | 시스템 권한 | USER, TEAM_LEADER, ADMIN |
 | **isActive** | `Boolean` | `is_active` | NOT NULL, DEFAULT(true) | 활성 여부 | 소프트 삭제 용도 |
+| **totalAnnualLeave** | `BigDecimal` | `total_annual_leave` | NOT NULL, scale=1 | 총 연차 | 기본 부여 |
+| **usedAnnualLeave** | `BigDecimal` | `used_annual_leave` | NOT NULL, scale=1 | 사용 연차 | 승인 시 증가 |
+| **remainingAnnualLeave** | `BigDecimal` | `remaining_annual_leave` | NOT NULL, scale=1 | 잔여 연차 | 승인 시 차감 |
 
 #### 4.1.3 연관관계 매핑
 ```java
@@ -301,207 +306,60 @@ public class TaskAssignment extends BaseEntity {
 
 ---
 
-### 4.5 Approval Entity (LeaveRequest 테이블)
+### 4.5 Approval Entity (LeaveRequest)
 
 #### 4.5.1 필드 상세 명세
 | 필드명 | 데이터 타입 | 컬럼명 | 제약조건 | 설명 | 비즈니스 규칙 |
 |--------|-------------|--------|----------|------|---------------|
-| **appId** | `Long` | `app_id` | PK, NOT NULL, AUTO_INCREMENT | 결재 식별자 | 시스템 자동 생성 |
-| **requesterId** | `Long` | `requester_id` | FK, NOT NULL | 기안자(신청자) ID | 필수 참조 |
-| **approverId** | `Long` | `approver_id` | FK | 결재자(승인자) ID | 처리 시 입력 |
-| **appType** | `LeaveType` | `app_type` | NOT NULL, ENUM | 결재 유형 | ANNUAL(연차), HALF(반차), SICK(병가) |
+| **id** | `Long` | `id` | PK, NOT NULL, AUTO_INCREMENT | 결재 식별자 | 시스템 자동 생성 |
+| **requester** | `User` | `requester_id` | FK, NOT NULL | 기안자 | 필수 참조 |
+| **approver** | `User` | `approver_id` | FK, NULL 허용 | 결재자 | 처리 시 입력 |
+| **appType** | `LeaveType` | `app_type` | NOT NULL, ENUM | 결재 유형 | ANNUAL, HALF_MORNING, HALF_AFTERNOON |
 | **startDate** | `LocalDate` | `start_date` | NOT NULL | 휴가 시작일 | 필수 입력 |
 | **endDate** | `LocalDate` | `end_date` | NOT NULL | 휴가 종료일 | 시작일 이후 |
-| **usedDays** | `BigDecimal` | `used_days` | NOT NULL | 실제 차감 일수 | 주말/공휴일을 제외한 순수 평일 합계. (반차는 0.5로 고정 계산) |
-| **appStatus** | `LeaveStatus` | `app_status` | NOT NULL, ENUM | 결재 상태 | PENDING(대기), APPROVED(승인), REJECTED(반려) |
-| **rejectReason** | `String` | `reject_reason` | LENGTH(500) | 반려 사유 | 반려 시 관리자가 입력 |
-| **createdAt** | `LocalDateTime` | `created_at` | NOT NULL | 기안 일시 | 자동 생성 |
+| **usedDays** | `BigDecimal` | `used_days` | NOT NULL, scale=1 | 실제 차감 일수 | 서버 계산 |
+| **appStatus** | `LeaveStatus` | `app_status` | NOT NULL, ENUM | 결재 상태 | PENDING, APPROVED, REJECTED |
+| **rejectReason** | `String` | `reject_reason` | LENGTH(500) | 반려 사유 | 반려 시 필수 |
 
-#### 4.5.2 구현 코드 예시
-```java
-@Entity
-@Table(name = "leave_requests")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Getter
-public class LeaveRequest extends BaseEntity {
+#### 4.5.2 핵심 비즈니스 메서드
+- `approve(User approver)`: `PENDING` 상태에서 승인 처리
+- `reject(User approver, String reason)`: `PENDING` 상태에서 반려 처리
+- `calculateUsedDays(List<LocalDate> holidayList)`: 반차(0.5) 또는 평일 수 기준 일수 계산
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "requester_id", nullable = false)
-    private User requester;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approver_id")
-    private User approver;
-
-    @Column(name = "app_type", nullable = false, length = 50)
-    private LeaveType appType;  // ANNUAL, HALF, SICK
-
-    @Column(name = "start_date", nullable = false)
-    private LocalDate startDate;
-
-    @Column(name = "end_date", nullable = false)
-    private LocalDate endDate;
-
-    @Column(name = "used_days", nullable = false, precision = 4, scale = 1)
-    private BigDecimal usedDays;
-
-    @Column(name = "app_status", nullable = false, length = 50)
-    private LeaveStatus appStatus = LeaveStatus.PENDING;  // PENDING, APPROVED, REJECTED
-
-    @Column(name = "reject_reason", length = 500)
-    private String rejectReason;
-
-    public void approve(User approver) {
-        if (!"PENDING".equals(this.appStatus)) {
-            throw new IllegalStateException("승인 가능한 상태가 아닙니다");
-        }
-        this.approver = approver;
-        this.appStatus = LeaveStatus.APPROVED;
-    }
-
-    public void reject(User approver, String reason) {
-        if (this.appStatus == LeaveStatus.PENDING) {
-            throw new IllegalStateException("반려 가능한 상태가 아닙니다");
-        }
-        if (reason == null || reason.isBlank()) {
-            throw new IllegalArgumentException("반려 사유는 필수입니다");
-        }
-        this.approver = approver;
-        this.rejectReason = reason;
-        this.appStatus = LeaveStatus.REJECTED;
-    }
-
-    /**
-     * 주말을 제외한 실제 연차 소진 일수를 계산하여 usedDays를 설정하는 메서드 추가
-     * @param holidayList 공휴일 정보 (Service에서 넘겨줌)
-     */
-    public void calculateUsedDays(List<LocalDate> holidayList) {
-        long workingDays = startDate.datesUntil(endDate.plusDays(1))
-                .filter(date -> date.getDayOfWeek() != DayOfWeek.SATURDAY)
-                .filter(date -> date.getDayOfWeek() != DayOfWeek.SUNDAY)
-                .filter(date -> !holidayList.contains(date))
-                .count();
-
-        if (workingDays == 0) {
-            throw new IllegalArgumentException("신청 기간에 평일이 포함되어 있지 않습니다.");
-        }
-        
-        // 반차(HALF)인 경우 0.5, 연차(ANNUAL)인 경우 계산된 일수 적용
-        this.usedDays = (this.appType == LeaveType.HALF) 
-                        ? new BigDecimal("0.5") 
-                        : BigDecimal.valueOf(workingDays);
-    }
-
-    @PrePersist
-    @PreUpdate
-    private void validatePeriod() {
-        // 기존 시작일/종료일 검증 로직 유지
-        if (endDate != null && startDate != null && endDate.isBefore(startDate)) {
-            throw new IllegalArgumentException("종료일은 시작일보다 빠를 수 없습니다.");
-        }
-        // [추가] 시작일이나 종료일 자체가 주말인 경우 UI와 별개로 서버에서 한 번 더 차단
-        if (isWeekend(startDate) || isWeekend(endDate)) {
-            throw new IllegalArgumentException("주말은 연차 신청이 불가능합니다.");
-        }
-    }
-
-    private boolean isWeekend(LocalDate date) {
-        DayOfWeek day = date.getDayOfWeek();
-        return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
-    }
-}
-```
-
-### 4.6 Attendance Entity(근태 및 연차 테이블)
+### 4.6 Attendance Entity
 
 #### 4.6.1 필드 상세 명세
 | 필드명 | 데이터 타입 | 컬럼명 | 제약조건 | 설명 | 비즈니스 규칙 |
 |--------|-------------|--------|----------|------|---------------|
-| **attId** | `Long` | `att_id` | PK, NOT NULL, AUTO_INCREMENT | 근태 식별자 | 시스템 자동 생성 |
-| **userId** | `Long` | `user_id` | FK, NOT NULL | 사용자 ID | 필수 참조 |
-| **workDate** | `LocalDate` | `work_date` | NOT NULL | 총 근무 일자 | 사용자+근무일 유일 |
-| **clockInTime** | `LocalTime` | `clock_in_time` | NULL 허용 | 출근 시간 | 옵션 |
-| **clockOutTime** | `LocalTime` | `clock_out_time` | NULL 허용 | 퇴근 시간 | 옵션 |
+| **id** | `Long` | `id` | PK, NOT NULL, AUTO_INCREMENT | 근태 식별자 | 시스템 자동 생성 |
+| **user** | `User` | `user_id` | FK, NOT NULL | 사용자 참조 | 필수 참조 |
+| **workDate** | `LocalDate` | `work_date` | NOT NULL | 근무 일자 | 사용자+일자 유니크 |
+| **clockInTime** | `LocalTime` | `clock_in_time` | NULL 허용 | 출근 시간 | 선택 입력 |
+| **clockOutTime** | `LocalTime` | `clock_out_time` | NULL 허용 | 퇴근 시간 | 선택 입력 |
 | **attStatus** | `AttendanceStatus` | `att_status` | NOT NULL, ENUM | 근태 상태 | NORMAL, LATE, ABSENT, LEAVE |
-| **totalAnnualLeave** | `BigDecimal` | `total_annual_leave` | NOT NULL, DEFAULT(0) | 총 연차 일수 | 직급 기준 부여 |
-| **usedAnnualLeave** | `BigDecimal` | `used_annual_leave` | NOT NULL, DEFAULT(0) | 연차 남은 일수 | 0 이상 |
-| **remainingAnnualLeave** | `BigDecimal` | `remaining_annual_leave` | NOT NULL, DEFAULT(0) | 연차 사용 일수 | 총 - 남은 일수 |
-| **usedDays** | `BigDecimal` | `used_days` | NULL 허용 | 해당 결재로 소모되는 일수 | LeaveRequest의 usedDays와 동기화. 결재 승인 완료 시점에 해당 값만큼 연차 차감 로직 실행 |
 
-#### 4.6.2 구현 코드 예시
-```java
-@Entity
-@Table(name = "attendances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "work_date"})
-})
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Getter
-public class Attendance extends BaseEntity {
+> 참고: 연차 총/사용/잔여 필드는 현재 `Attendance`가 아니라 `User` 엔티티에서 관리합니다.
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+### 4.7 OvertimeRequest Entity
 
-    @Column(name = "work_date", nullable = false)
-    private LocalDate workDate;
+#### 4.7.1 필드 상세 명세
+| 필드명 | 데이터 타입 | 컬럼명 | 제약조건 | 설명 |
+|--------|-------------|--------|----------|------|
+| **id** | `Long` | `id` | PK, NOT NULL, AUTO_INCREMENT | 특근 신청 식별자 |
+| **requester** | `User` | `requester_id` | FK, NOT NULL | 신청자 |
+| **approver** | `User` | `approver_id` | FK, NULL 허용 | 결재자 |
+| **overtimeDate** | `LocalDate` | `overtime_date` | NOT NULL | 특근 일자 |
+| **startTime** | `LocalTime` | `start_time` | NOT NULL | 시작 시각 |
+| **endTime** | `LocalTime` | `end_time` | NOT NULL | 종료 시각 |
+| **reason** | `String` | `reason` | LENGTH(500) | 신청 사유 |
+| **status** | `OvertimeStatus` | `status` | NOT NULL, ENUM | PENDING, APPROVED, REJECTED |
 
-    @Column(name = "clock_in_time")
-    private LocalTime clockInTime;
-
-    @Column(name = "clock_out_time")
-    private LocalTime clockOutTime;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "att_status", nullable = false)
-    private AttendanceStatus attStatus = AttendanceStatus.NORMAL;
-
-    @Column(name = "total_annual_leave", nullable = false, precision = 4, scale = 1)
-    private BigDecimal totalAnnualLeave = BigDecimal.ZERO;
-
-    @Column(name = "used_annual_leave", nullable = false, precision = 4, scale = 1)
-    private BigDecimal usedAnnualLeave = BigDecimal.ZERO;
-
-    @Column(name = "remaining_annual_leave", nullable = false, precision = 4, scale = 1)
-    private BigDecimal remainingAnnualLeave = BigDecimal.ZERO;
-
-    @Column(name = "used_days", precision = 4, scale = 1)
-    private BigDecimal usedDays;
-
-    public void deductAnnualLeave(BigDecimal days) {
-        if (remainingAnnualLeave.compareTo(days) < 0) {
-            throw new IllegalArgumentException("잔여 연차가 부족합니다");
-        }
-        this.usedAnnualLeave = usedAnnualLeave.add(days);
-        this.remainingAnnualLeave = remainingAnnualLeave.subtract(days);
-        this.usedDays = days;
-    }
-
-    public void restoreAnnualLeave(BigDecimal days) {
-        this.usedAnnualLeave = usedAnnualLeave.subtract(days);
-        this.remainingAnnualLeave = remainingAnnualLeave.add(days);
-    }
-/**
-     * 출근 기록 생성 시 검증 로직
-     * @param isHoliday 해당 날짜가 주말/공휴일인지 여부
-     * @param hasApprovedOvertime 승인된 특근 신청서 존재 여부
-     */
-    public void checkIn(LocalTime now, boolean isHoliday, boolean hasApprovedOvertime) {
-        // [요구사항 반영] 주말/공휴일인데 승인된 특근이 없는 경우
-        if (isHoliday && !hasApprovedOvertime) {
-            throw new IllegalStateException("승인된 특근 신청서가 없어 출근 처리가 불가능합니다.");
-        }
-
-        this.clockInTime = now;
-        
-        // 지각 여부 등 기존 로직 처리
-        if (now.isAfter(LocalTime.of(9, 0))) {
-            this.attStatus = AttendanceStatus.LATE;
-        } else {
-            this.attStatus = AttendanceStatus.NORMAL;
-        }
-    }
-}
-```
+#### 4.7.2 비즈니스 규칙
+- 평일 특근 신청은 불가 (`INVALID_OVERTIME_DATE`)
+- 신청자 역할 기준 계층 결재 적용
+  - USER -> TEAM_LEADER/ADMIN
+  - TEAM_LEADER -> ADMIN
+  - ADMIN -> ADMIN 본인(셀프)
 
 ---
 
@@ -511,17 +369,14 @@ public class Attendance extends BaseEntity {
 ```java
 public enum UserRole {
     USER("일반 사용자"),
-    ADMIN("관리자");
+    TEAM_LEADER("팀장"),
+    ADMIN("관리 소장");
 
     private final String displayName;
 
-    UserRole(String displayName) {
-        this.displayName = displayName;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
+    public boolean isTopManager() { return this == ADMIN; }
+    public boolean isTeamLeader() { return this == TEAM_LEADER; }
+    public boolean isGeneralUser() { return this == USER; }
 }
 ```
 
@@ -567,39 +422,25 @@ public enum LeaveStatus {
 ```java
 public enum LeaveType {
     ANNUAL("연차", new BigDecimal("1.0")),
-    HALF("반차", new BigDecimal("0.5"));
+    HALF_MORNING("오전반차", new BigDecimal("0.5")),
+    HALF_AFTERNOON("오후반차", new BigDecimal("0.5"));
 
     private final String displayName;
     private final BigDecimal unitDays;
 
-    LeaveType(String displayName, BigDecimal unitDays) {
-        this.displayName = displayName;
-        this.unitDays = unitDays;
-    }
-
-    public BigDecimal getUnitDays() {
-        return unitDays;
+    public BigDecimal getUnitDays() { return unitDays; }
+    public boolean isHalfDay() {
+        return this == HALF_MORNING || this == HALF_AFTERNOON;
     }
 }
 ```
 
-### 5.5 AttendanceStatus
+### 5.6 OvertimeStatus
 ```java
-public enum AttendanceStatus {
-    NORMAL("정상 출근"),
-    LATE("지각"),
-    ABSENT("결근"),
-    LEAVE("휴가");
-
-    private final String displayName;
-
-    AttendanceStatus(String displayName) {
-        this.displayName = displayName;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
+public enum OvertimeStatus {
+    PENDING,
+    APPROVED,
+    REJECTED
 }
 ```
 
