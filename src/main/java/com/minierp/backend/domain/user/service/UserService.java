@@ -24,8 +24,8 @@ public class UserService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public UserListResponseDto getUsers(int page, int size, String role, String search, String requesterLoginId) {
-        User requester = userRepository.findByLoginId(requesterLoginId)
+    public UserListResponseDto getUsers(int page, int size, String role, String search, Long requesterUserId) {
+        User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         Pageable pageable = PageRequest.of(page, size);
@@ -34,7 +34,7 @@ public class UserService {
         if (requester.getUserRole().isTopManager()) {
             spec = Specification.where(isActive()).and(roleEquals(role)).and(nameOrEmailContains(search));
         } else {
-            spec = Specification.where(isActive()).and(loginIdEquals(requesterLoginId));
+            spec = Specification.where(isActive()).and(userIdEquals(requesterUserId));
         }
 
         Page<UserResponseDto> users = userRepository.findAll(spec, pageable).map(UserResponseDto::detail);
@@ -42,16 +42,16 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDto getUser(Long userId, String requesterLoginId, boolean isAdmin) {
+    public UserResponseDto getUser(Long userId, Long requesterUserId, boolean isAdmin) {
         User user = getUserOrThrow(userId);
-        validateSelfOrAdmin(user, requesterLoginId, isAdmin);
+        validateSelfOrAdmin(user, requesterUserId, isAdmin);
         return UserResponseDto.detail(user);
     }
 
     @Transactional
-    public UserResponseDto updateUser(Long userId, UserUpdateRequestDto requestDto, String requesterLoginId, boolean isAdmin) {
+    public UserResponseDto updateUser(Long userId, UserUpdateRequestDto requestDto, Long requesterUserId, boolean isAdmin) {
         User user = getUserOrThrow(userId);
-        validateSelfOrAdmin(user, requesterLoginId, isAdmin);
+        validateSelfOrAdmin(user, requesterUserId, isAdmin);
 
         user.updateProfile(requestDto.getName(), requestDto.getPosition());
         return UserResponseDto.detail(user);
@@ -69,8 +69,8 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
-    private void validateSelfOrAdmin(User user, String requesterLoginId, boolean isAdmin) {
-        if (!isAdmin && !user.getLoginId().equals(requesterLoginId)) {
+    private void validateSelfOrAdmin(User user, Long requesterUserId, boolean isAdmin) {
+        if (!isAdmin && !user.getId().equals(requesterUserId)) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
     }
@@ -92,6 +92,13 @@ public class UserService {
             return null;
         }
         return (root, query, cb) -> cb.equal(root.get("loginId"), loginId);
+    }
+
+    private Specification<User> userIdEquals(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return (root, query, cb) -> cb.equal(root.get("id"), userId);
     }
 
     private Specification<User> nameOrEmailContains(String search) {

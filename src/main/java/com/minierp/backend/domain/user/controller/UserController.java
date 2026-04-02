@@ -6,6 +6,8 @@ import com.minierp.backend.domain.user.dto.UserRoleUpdateRequestDto;
 import com.minierp.backend.domain.user.dto.UserRoleUpdateResponseDto;
 import com.minierp.backend.domain.user.dto.UserUpdateRequestDto;
 import com.minierp.backend.domain.user.service.UserService;
+import com.minierp.backend.global.exception.BusinessException;
+import com.minierp.backend.global.exception.ErrorCode;
 import com.minierp.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,13 +38,13 @@ public class UserController {
             @RequestParam(required = false) String search,
             Authentication authentication
     ) {
-        UserListResponseDto response = userService.getUsers(page, size, role, search, authentication.getName());
+        UserListResponseDto response = userService.getUsers(page, size, role, search, extractUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "목록 조회가 완료되었습니다"));
     }
 
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserResponseDto>> getUser(@PathVariable Long userId, Authentication authentication) {
-        UserResponseDto response = userService.getUser(userId, authentication.getName(), isTopManager(authentication));
+        UserResponseDto response = userService.getUser(userId, extractUserId(authentication), isTopManager(authentication));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -52,7 +54,7 @@ public class UserController {
             @Valid @RequestBody UserUpdateRequestDto requestDto,
             Authentication authentication
     ) {
-        UserResponseDto response = userService.updateUser(userId, requestDto, authentication.getName(), isTopManager(authentication));
+        UserResponseDto response = userService.updateUser(userId, requestDto, extractUserId(authentication), isTopManager(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "사용자 정보가 수정되었습니다"));
     }
 
@@ -64,6 +66,18 @@ public class UserController {
     ) {
         UserRoleUpdateResponseDto response = userService.updateUserRole(userId, requestDto.getRole());
         return ResponseEntity.ok(ApiResponse.success(response, "사용자 권한이 변경되었습니다"));
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        try {
+            return Long.valueOf(authentication.getName());
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 사용자 정보가 올바르지 않습니다.");
+        }
     }
 
     private boolean isTopManager(Authentication authentication) {
