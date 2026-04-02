@@ -64,6 +64,13 @@ public class Task extends BaseEntity {
         this.taskStatus = newStatus;
     }
 
+    public void update(String taskTitle, String taskContent, LocalDate endDate, Priority priority) {
+        this.taskTitle = taskTitle;
+        this.taskContent = taskContent;
+        this.endDate = endDate;
+        this.priority = priority;
+    }
+
     public boolean isOverdue() {
         return taskStatus != TaskStatus.DONE && endDate != null && endDate.isBefore(LocalDate.now());
     }
