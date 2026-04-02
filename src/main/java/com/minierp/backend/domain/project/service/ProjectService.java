@@ -6,6 +6,7 @@ import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.ProjectUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.AvailableMemberResponseDto;
 import com.minierp.backend.domain.project.dto.AssignableMemberDto;
 import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
@@ -97,6 +98,22 @@ public class ProjectService {
                 .distinct()
                 .map(this::toProjectResponseDto)
                 .toList();
+    }
+
+    @Transactional
+    public ProjectResponseDto updateProject(Long projectId, ProjectUpdateRequestDto request, UserRole currentUserRole) {
+        validateAdminRole(currentUserRole);
+
+        Project project = findProjectOrThrow(projectId);
+        project.update(
+                request.getTitle(),
+                request.getContent(),
+                request.getStartDate(),
+                request.getEndDate(),
+                request.getPriority()
+        );
+
+        return ProjectResponseDto.from(project);
     }
 
     @Transactional

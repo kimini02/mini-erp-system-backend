@@ -8,6 +8,7 @@ import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
 import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
+import com.minierp.backend.domain.task.dto.TaskUpdateRequestDto;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
 import com.minierp.backend.domain.task.repository.TaskAssignmentRepository;
@@ -107,6 +108,29 @@ public class TaskService {
     public TaskResponseDto getTask(Long taskId, Long currentUserId, UserRole currentUserRole) {
         Task task = findTaskOrThrow(taskId);
         validateTaskAccess(task, currentUserId, currentUserRole);
+        return TaskResponseDto.from(task);
+    }
+
+    @Transactional
+    public TaskResponseDto updateTask(
+            Long taskId,
+            TaskUpdateRequestDto request,
+            Long currentUserId,
+            UserRole currentUserRole
+    ) {
+        validateAdminOrLeaderRole(currentUserRole);
+
+        Task task = findTaskOrThrow(taskId);
+        if (currentUserRole == UserRole.TEAM_LEADER) {
+            validateProjectLeaderForTask(task.getProject().getId(), currentUserId);
+        }
+
+        task.update(
+                request.getTaskTitle(),
+                request.getTaskContent(),
+                request.getEndDate(),
+                request.getPriority()
+        );
         return TaskResponseDto.from(task);
     }
 

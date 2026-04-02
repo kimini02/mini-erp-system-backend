@@ -6,6 +6,7 @@ import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
 import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
+import com.minierp.backend.domain.task.dto.TaskUpdateRequestDto;
 import com.minierp.backend.domain.task.service.TaskService;
 import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.global.exception.BusinessException;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -68,6 +70,21 @@ public class TaskController {
                 extractUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "업무 상세 조회가 완료되었습니다."));
+    }
+
+    @PutMapping("/{taskId}")
+    public ResponseEntity<ApiResponse<TaskResponseDto>> updateTask(
+            @PathVariable Long taskId,
+            @Valid @RequestBody TaskUpdateRequestDto request,
+            Authentication authentication
+    ) {
+        TaskResponseDto response = taskService.updateTask(
+                taskId,
+                request,
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "업무가 수정되었습니다."));
     }
 
     @PatchMapping("/{taskId}/status")

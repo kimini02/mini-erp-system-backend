@@ -95,6 +95,15 @@ public class Project extends BaseEntity {
         this.status = newStatus;
     }
 
+    public void update(String title, String content, LocalDate startDate, LocalDate endDate, Priority priority) {
+        this.title = title;
+        this.content = content;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.priority = priority;
+        this.validatePeriod();
+    }
+
     public void assignLeader(User leader) {
         this.leader = leader;
     }
