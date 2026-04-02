@@ -113,7 +113,7 @@ public class ProjectService {
                 request.getPriority()
         );
 
-        return ProjectResponseDto.from(project);
+        return toProjectResponseDto(project);
     }
 
     @Transactional
@@ -128,7 +128,7 @@ public class ProjectService {
         }
 
         project.assignLeader(leader);
-        return ProjectResponseDto.from(project);
+        return toProjectResponseDto(project);
     }
 
     @Transactional

@@ -160,6 +160,29 @@ class TaskServiceTest {
     }
 
     @Test
+    @DisplayName("업무 생성 시 마감일이 프로젝트 종료일보다 늦으면 예외가 발생한다")
+    void createTask_withInvalidPeriod_throwsException() {
+        Long projectId = 1L;
+        Project project = createProject(projectId);
+        TaskCreateRequestDto request = TaskCreateRequestDto.of(
+                projectId,
+                "내 업무 화면 구현",
+                "React 페이지 및 API 연동",
+                LocalDate.of(2026, 5, 10),
+                TaskStatus.TODO,
+                Priority.HIGH,
+                List.of(10L)
+        );
+
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+
+        assertThatThrownBy(() -> taskService.createTask(request, 1L, UserRole.ADMIN))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_TASK_PERIOD));
+    }
+
+    @Test
     @DisplayName("관리자는 전체 업무를 조회할 수 있다")
     void getTasks_asAdmin_returnsAllTasks() {
         Task firstTask = createTask(1L, 1L, TaskStatus.TODO);
@@ -232,7 +255,7 @@ class TaskServiceTest {
                 TaskUpdateRequestDto.of(
                         "수정된 제목",
                         "수정된 내용",
-                        LocalDate.of(2026, 5, 10),
+                        LocalDate.of(2026, 4, 10),
                         Priority.HIGH
                 ),
                 1L,
@@ -241,7 +264,7 @@ class TaskServiceTest {
 
         assertThat(task.getTaskTitle()).isEqualTo("수정된 제목");
         assertThat(task.getTaskContent()).isEqualTo("수정된 내용");
-        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 5, 10));
+        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 4, 10));
         assertThat(task.getPriority()).isEqualTo(Priority.HIGH);
         assertThat(response.getTaskTitle()).isEqualTo("수정된 제목");
     }
@@ -261,7 +284,7 @@ class TaskServiceTest {
                 TaskUpdateRequestDto.of(
                         "팀장 수정 제목",
                         "팀장 수정 내용",
-                        LocalDate.of(2026, 5, 20),
+                        LocalDate.of(2026, 4, 20),
                         Priority.MEDIUM
                 ),
                 leaderId,
@@ -270,7 +293,7 @@ class TaskServiceTest {
 
         assertThat(task.getTaskTitle()).isEqualTo("팀장 수정 제목");
         assertThat(task.getTaskContent()).isEqualTo("팀장 수정 내용");
-        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 5, 20));
+        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 4, 20));
         assertThat(response.getTaskTitle()).isEqualTo("팀장 수정 제목");
     }
 
@@ -339,6 +362,29 @@ class TaskServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.TASK_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("업무 수정 시 마감일이 프로젝트 종료일보다 늦으면 예외가 발생한다")
+    void updateTask_withInvalidPeriod_throwsException() {
+        Long taskId = 1L;
+        Task task = createTask(taskId, 1L, TaskStatus.TODO);
+        given(taskRepository.findById(taskId)).willReturn(Optional.of(task));
+
+        assertThatThrownBy(() -> taskService.updateTask(
+                taskId,
+                TaskUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 10),
+                        Priority.HIGH
+                ),
+                1L,
+                UserRole.ADMIN
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_TASK_PERIOD));
     }
 
     @Test

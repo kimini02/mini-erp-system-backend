@@ -43,8 +43,27 @@ public class DashboardService {
     private final ProjectRepository projectRepository;
     private final LeaveRequestRepository leaveRequestRepository;
 
-    public DashboardResponseDto getDashboardStats() {
-        Map<TaskStatus, Long> taskStatusStats = taskRepository.findAll().stream()
+    public DashboardResponseDto getDashboardStats(Long currentUserId, UserRole currentUserRole) {
+        List<Task> tasks;
+
+        if (currentUserRole == null) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        if (currentUserRole.isTopManager()) {
+            tasks = taskRepository.findAll();
+        } else if (currentUserRole.isTeamLeader()) {
+            List<Long> projectIds = projectRepository.findByLeaderId(currentUserId).stream()
+                    .map(Project::getId)
+                    .toList();
+            tasks = projectIds.stream()
+                    .flatMap(projectId -> taskRepository.findByProjectId(projectId).stream())
+                    .toList();
+        } else {
+            tasks = taskRepository.findByAssigneeUserId(currentUserId);
+        }
+
+        Map<TaskStatus, Long> taskStatusStats = tasks.stream()
                 .collect(groupingBy(
                         Task::getTaskStatus,
                         () -> new EnumMap<>(TaskStatus.class),

@@ -3,6 +3,8 @@ package com.minierp.backend.domain.task.entity;
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.global.entity.BaseEntity;
 import com.minierp.backend.global.entity.Priority;
+import com.minierp.backend.global.exception.BusinessException;
+import com.minierp.backend.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -57,6 +59,7 @@ public class Task extends BaseEntity {
         task.taskStatus = taskStatus == null ? TaskStatus.TODO : taskStatus;
         task.priority = priority;
         task.project = project;
+        task.validatePeriod();
         return task;
     }
 
@@ -69,6 +72,7 @@ public class Task extends BaseEntity {
         this.taskContent = taskContent;
         this.endDate = endDate;
         this.priority = priority;
+        this.validatePeriod();
     }
 
     public boolean isOverdue() {
@@ -77,5 +81,13 @@ public class Task extends BaseEntity {
 
     void addTaskAssignment(TaskAssignment taskAssignment) {
         taskAssignments.add(taskAssignment);
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void validatePeriod() {
+        if (project != null && project.getEndDate() != null && endDate != null && endDate.isAfter(project.getEndDate())) {
+            throw new BusinessException(ErrorCode.INVALID_TASK_PERIOD);
+        }
     }
 }

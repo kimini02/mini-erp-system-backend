@@ -190,6 +190,14 @@ class ProjectServiceTest {
         Long projectId = 1L;
         Project project = createProject(projectId, "기존 제목");
         given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+        given(projectMemberRepository.findByProjectId(projectId)).willReturn(List.of(
+                createProjectMember(100L, project, createUser(10L)),
+                createProjectMember(101L, project, createUser(11L))
+        ));
+        given(taskRepository.findByProjectId(projectId)).willReturn(List.of(
+                createTask(1L, projectId, TaskStatus.TODO),
+                createTask(2L, projectId, TaskStatus.DONE)
+        ));
 
         ProjectResponseDto response = projectService.updateProject(
                 projectId,
@@ -209,6 +217,9 @@ class ProjectServiceTest {
         assertThat(project.getEndDate()).isEqualTo(LocalDate.of(2026, 6, 30));
         assertThat(project.getPriority()).isEqualTo(Priority.HIGH);
         assertThat(response.getTitle()).isEqualTo("수정된 제목");
+        assertThat(response.getMemberCount()).isEqualTo(2L);
+        assertThat(response.getTaskCount()).isEqualTo(2L);
+        assertThat(response.getProgressRate()).isEqualTo(50);
     }
 
     @Test
@@ -280,12 +291,22 @@ class ProjectServiceTest {
         User leader = createUser(leaderId, UserRole.TEAM_LEADER);
         given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
         given(userRepository.findById(leaderId)).willReturn(Optional.of(leader));
+        given(projectMemberRepository.findByProjectId(projectId)).willReturn(List.of(
+                createProjectMember(100L, project, createUser(10L))
+        ));
+        given(taskRepository.findByProjectId(projectId)).willReturn(List.of(
+                createTask(1L, projectId, TaskStatus.DONE),
+                createTask(2L, projectId, TaskStatus.DONE)
+        ));
 
         ProjectResponseDto response = projectService.updateProjectLeader(projectId, leaderId, UserRole.ADMIN);
 
         assertThat(project.getLeader()).isEqualTo(leader);
         assertThat(response.getLeaderId()).isEqualTo(leaderId);
         assertThat(response.getLeaderName()).isEqualTo("사용자20");
+        assertThat(response.getMemberCount()).isEqualTo(1L);
+        assertThat(response.getTaskCount()).isEqualTo(2L);
+        assertThat(response.getProgressRate()).isEqualTo(100);
     }
 
     @Test

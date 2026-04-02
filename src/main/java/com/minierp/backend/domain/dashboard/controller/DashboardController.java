@@ -25,8 +25,11 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/progress")
-    public ResponseEntity<ApiResponse<DashboardResponseDto>> getDashboardProgress() {
-        DashboardResponseDto response = dashboardService.getDashboardStats();
+    public ResponseEntity<ApiResponse<DashboardResponseDto>> getDashboardProgress(Authentication authentication) {
+        DashboardResponseDto response = dashboardService.getDashboardStats(
+                extractUserId(authentication),
+                extractUserRole(authentication)
+        );
         return ResponseEntity.ok(ApiResponse.success(response, "대시보드 진행률 조회가 완료되었습니다."));
     }
 

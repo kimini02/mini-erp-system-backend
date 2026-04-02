@@ -41,7 +41,7 @@ public enum ErrorCode {
     DUPLICATE_PROJECT_MEMBER(HttpStatus.CONFLICT, "이미 프로젝트에 배정된 팀원입니다."),
     PROJECT_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "프로젝트 팀원 정보를 찾을 수 없습니다."),
     TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "업무를 찾을 수 없습니다."),
-    INVALID_TASK_PERIOD(HttpStatus.BAD_REQUEST, "업무 종료일은 시작일보다 빠를 수 없습니다."),
+    INVALID_TASK_PERIOD(HttpStatus.BAD_REQUEST, "업무 종료일은 프로젝트 종료일보다 늦을 수 없습니다."),
     DUPLICATE_ASSIGNMENT(HttpStatus.CONFLICT, "이미 배정된 담당자입니다."),
     ASSIGNMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "담당자 배정 정보를 찾을 수 없습니다."),
     TASK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인에게 배정된 업무만 접근할 수 있습니다."),

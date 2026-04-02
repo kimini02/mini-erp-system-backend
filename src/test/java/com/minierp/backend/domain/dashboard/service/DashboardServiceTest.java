@@ -63,8 +63,8 @@ class DashboardServiceTest {
     private LeaveRequestRepository leaveRequestRepository;
 
     @Test
-    @DisplayName("대시보드 진행률은 상태별 업무 수와 완료율을 계산한다")
-    void getDashboardStats_success() {
+    @DisplayName("ADMIN 대시보드 진행률은 전체 업무 상태별 수와 완료율을 계산한다")
+    void getDashboardStats_asAdmin_success() {
         given(taskRepository.findAll()).willReturn(List.of(
                 createTask(1L, TaskStatus.TODO),
                 createTask(2L, TaskStatus.DOING),
@@ -72,11 +72,49 @@ class DashboardServiceTest {
                 createTask(4L, TaskStatus.DONE)
         ));
 
-        DashboardResponseDto response = dashboardService.getDashboardStats();
+        DashboardResponseDto response = dashboardService.getDashboardStats(1L, UserRole.ADMIN);
 
         assertThat(response.getTodoCount()).isEqualTo(1L);
         assertThat(response.getDoingCount()).isEqualTo(1L);
         assertThat(response.getDoneCount()).isEqualTo(2L);
+        assertThat(response.getProgressRate()).isEqualTo(50.0);
+    }
+
+    @Test
+    @DisplayName("TEAM_LEADER 대시보드 진행률은 본인 프로젝트 업무 기준으로 계산한다")
+    void getDashboardStats_asTeamLeader_success() {
+        Project project1 = createProject(1L, ProjectStatus.PROGRESS);
+        Project project2 = createProject(2L, ProjectStatus.READY);
+        given(projectRepository.findByLeaderId(10L)).willReturn(List.of(project1, project2));
+        given(taskRepository.findByProjectId(1L)).willReturn(List.of(
+                createTask(1L, TaskStatus.TODO),
+                createTask(2L, TaskStatus.DONE)
+        ));
+        given(taskRepository.findByProjectId(2L)).willReturn(List.of(
+                createTask(3L, TaskStatus.DOING)
+        ));
+
+        DashboardResponseDto response = dashboardService.getDashboardStats(10L, UserRole.TEAM_LEADER);
+
+        assertThat(response.getTodoCount()).isEqualTo(1L);
+        assertThat(response.getDoingCount()).isEqualTo(1L);
+        assertThat(response.getDoneCount()).isEqualTo(1L);
+        assertThat(response.getProgressRate()).isEqualTo((1 * 100.0) / 3);
+    }
+
+    @Test
+    @DisplayName("USER 대시보드 진행률은 본인 배정 업무 기준으로 계산한다")
+    void getDashboardStats_asUser_success() {
+        given(taskRepository.findByAssigneeUserId(10L)).willReturn(List.of(
+                createTask(1L, TaskStatus.TODO),
+                createTask(2L, TaskStatus.DONE)
+        ));
+
+        DashboardResponseDto response = dashboardService.getDashboardStats(10L, UserRole.USER);
+
+        assertThat(response.getTodoCount()).isEqualTo(1L);
+        assertThat(response.getDoingCount()).isZero();
+        assertThat(response.getDoneCount()).isEqualTo(1L);
         assertThat(response.getProgressRate()).isEqualTo(50.0);
     }
 

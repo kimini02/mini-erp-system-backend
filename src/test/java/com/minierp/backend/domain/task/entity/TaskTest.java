@@ -2,12 +2,15 @@ package com.minierp.backend.domain.task.entity;
 
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.global.entity.Priority;
+import com.minierp.backend.global.exception.BusinessException;
+import com.minierp.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TaskTest {
 
@@ -65,14 +68,53 @@ class TaskTest {
         task.update(
                 "수정된 제목",
                 "수정된 내용",
-                LocalDate.of(2026, 5, 15),
+                LocalDate.of(2026, 4, 15),
                 Priority.HIGH
         );
 
         assertThat(task.getTaskTitle()).isEqualTo("수정된 제목");
         assertThat(task.getTaskContent()).isEqualTo("수정된 내용");
-        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 5, 15));
+        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 4, 15));
         assertThat(task.getPriority()).isEqualTo(Priority.HIGH);
+    }
+
+    @Test
+    @DisplayName("업무 생성 시 마감일이 프로젝트 종료일보다 늦으면 예외가 발생한다")
+    void createTask_invalidPeriod_throwsException() {
+        assertThatThrownBy(() -> Task.create(
+                "내 업무 화면 구현",
+                "React 페이지 및 API 연동",
+                LocalDate.of(2026, 5, 1),
+                null,
+                Priority.HIGH,
+                createProject()
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_TASK_PERIOD));
+    }
+
+    @Test
+    @DisplayName("업무 수정 시 마감일이 프로젝트 종료일보다 늦으면 예외가 발생한다")
+    void updateTask_invalidPeriod_throwsException() {
+        Task task = Task.create(
+                "기존 제목",
+                "기존 내용",
+                LocalDate.of(2026, 4, 30),
+                TaskStatus.TODO,
+                Priority.LOW,
+                createProject()
+        );
+
+        assertThatThrownBy(() -> task.update(
+                "수정된 제목",
+                "수정된 내용",
+                LocalDate.of(2026, 5, 15),
+                Priority.HIGH
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_TASK_PERIOD));
     }
 
     @Test
