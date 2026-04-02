@@ -31,7 +31,7 @@ public class ApprovalController {
             @RequestBody LeaveRequestCreateDto dto,
             Authentication authentication) {
 
-        LeaveRequestResponseDto response = approvalService.createLeaveRequest(dto, authentication.getName());
+        LeaveRequestResponseDto response = approvalService.createLeaveRequest(dto, extractUserId(authentication));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "연차 신청이 완료되었습니다."));
     }
@@ -45,7 +45,7 @@ public class ApprovalController {
             @PathVariable Long requestId,
             Authentication authentication) {
 
-        LeaveRequestResponseDto response = approvalService.approveLeaveRequest(requestId, authentication.getName());
+        LeaveRequestResponseDto response = approvalService.approveLeaveRequest(requestId, extractUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "연차가 승인되었습니다."));
     }
 
@@ -59,7 +59,7 @@ public class ApprovalController {
             @RequestBody RejectRequestDto rejectDto,
             Authentication authentication) {
 
-        LeaveRequestResponseDto response = approvalService.rejectLeaveRequest(requestId, authentication.getName(), rejectDto);
+        LeaveRequestResponseDto response = approvalService.rejectLeaveRequest(requestId, extractUserId(authentication), rejectDto);
         return ResponseEntity.ok(ApiResponse.success(response, "연차가 반려되었습니다."));
     }
 
@@ -71,7 +71,7 @@ public class ApprovalController {
     public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getMyLeaveRequests(
             Authentication authentication) {
 
-        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequests(authentication.getName());
+        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequests(extractUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "내 연차 신청 내역 조회가 완료되었습니다."));
     }
 
@@ -81,7 +81,7 @@ public class ApprovalController {
      */
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getAllLeaveRequests(Authentication authentication) {
-        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequests(authentication.getName());
+        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequests(extractUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "연차 신청 전체 조회가 완료되었습니다."));
     }
 
@@ -93,7 +93,7 @@ public class ApprovalController {
     public ResponseEntity<ApiResponse<LeaveBalanceResponseDto>> getLeaveBalance(
             Authentication authentication) {
 
-        LeaveBalanceResponseDto response = approvalService.getLeaveBalance(authentication.getName());
+        LeaveBalanceResponseDto response = approvalService.getLeaveBalance(extractUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "연차 잔여 현황 조회가 완료되었습니다."));
     }
 
@@ -105,5 +105,13 @@ public class ApprovalController {
     public ResponseEntity<ApiResponse<List<LeavePolicyResponseDto>>> getLeavePolicy() {
         List<LeavePolicyResponseDto> response = approvalService.getLeavePolicy();
         return ResponseEntity.ok(ApiResponse.success(response, "연차 정책 조회가 완료되었습니다."));
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new IllegalArgumentException("인증 정보가 없습니다.");
+        }
+
+        return Long.valueOf(authentication.getName());
     }
 }

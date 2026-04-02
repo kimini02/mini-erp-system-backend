@@ -30,7 +30,7 @@ public class OvertimeService {
      * 특근 신청
      */
     @Transactional
-    public OvertimeResponseDto requestOvertime(OvertimeRequestDto dto, String requesterLoginId) {
+    public OvertimeResponseDto requestOvertime(OvertimeRequestDto dto, Long requesterUserId) {
         // 방어 코드: 시작 시간이 종료 시간보다 늦을 경우
         if (dto.getEndTime().isBefore(dto.getStartTime())) {
             throw new BusinessException(ErrorCode.INVALID_OVERTIME_TIME);
@@ -40,7 +40,7 @@ public class OvertimeService {
             throw new BusinessException(ErrorCode.INVALID_OVERTIME_DATE);
         }
 
-        User requester = getUserByLoginId(requesterLoginId);
+        User requester = getUserById(requesterUserId);
 
         OvertimeRequest request = OvertimeRequest.builder()
                 .requester(requester)
@@ -58,9 +58,9 @@ public class OvertimeService {
      * - USER: 본인 건만 조회
      * - TEAM_LEADER/ADMIN: 전체 조회 가능
      */
-    public OvertimeResponseDto getOvertimeRequest(Long requestId, String accessorLoginId) {
+    public OvertimeResponseDto getOvertimeRequest(Long requestId, Long accessorUserId) {
         OvertimeRequest request = getRequestOrThrow(requestId);
-        User accessor = getUserByLoginId(accessorLoginId);
+        User accessor = getUserById(accessorUserId);
 
         if (accessor.getUserRole().isGeneralUser() && !request.getRequester().getId().equals(accessor.getId())) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "본인 특근 신청 건만 조회할 수 있습니다.");
@@ -73,9 +73,9 @@ public class OvertimeService {
      * 특근 승인
      */
     @Transactional
-    public OvertimeResponseDto approveOvertime(Long requestId, String approverLoginId) {
+    public OvertimeResponseDto approveOvertime(Long requestId, Long approverUserId) {
         OvertimeRequest request = getRequestOrThrow(requestId);
-        User approver = getUserByLoginId(approverLoginId);
+        User approver = getUserById(approverUserId);
 
         validateApprovalHierarchy(request.getRequester(), approver);
         request.approve(approver);
@@ -86,9 +86,9 @@ public class OvertimeService {
      * 특근 반려
      */
     @Transactional
-    public OvertimeResponseDto rejectOvertime(Long requestId, String approverLoginId) {
+    public OvertimeResponseDto rejectOvertime(Long requestId, Long approverUserId) {
         OvertimeRequest request = getRequestOrThrow(requestId);
-        User approver = getUserByLoginId(approverLoginId);
+        User approver = getUserById(approverUserId);
 
         validateApprovalHierarchy(request.getRequester(), approver);
         request.reject(approver);
@@ -100,8 +100,8 @@ public class OvertimeService {
      * - USER: 본인 내역만
      * - TEAM_LEADER/ADMIN: 전체 내역
      */
-    public List<OvertimeResponseDto> getOvertimeRequests(String accessorLoginId) {
-        User accessor = getUserByLoginId(accessorLoginId);
+    public List<OvertimeResponseDto> getOvertimeRequests(Long accessorUserId) {
+        User accessor = getUserById(accessorUserId);
 
         if (accessor.getUserRole().isGeneralUser()) {
             return overtimeRequestRepository.findByRequester_Id(accessor.getId()).stream()
@@ -115,8 +115,8 @@ public class OvertimeService {
     }
 
     // 기존 /my API 호환
-    public List<OvertimeResponseDto> getMyOvertimeRequests(String loginId) {
-        return getOvertimeRequests(loginId);
+    public List<OvertimeResponseDto> getMyOvertimeRequests(Long userId) {
+        return getOvertimeRequests(userId);
     }
 
     /**
@@ -166,6 +166,11 @@ public class OvertimeService {
 
     private User getUserByLoginId(String loginId) {
         return userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getUserById(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 

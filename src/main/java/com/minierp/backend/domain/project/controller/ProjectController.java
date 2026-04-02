@@ -111,6 +111,7 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 팀원 목록 조회가 완료되었습니다."));
     }
 
+    // 프로젝트에 배정되지 않은 팀원
     @GetMapping("/{projectId}/members/available")
     public ResponseEntity<ApiResponse<List<AvailableMemberResponseDto>>> getAvailableMembers(
             @PathVariable Long projectId,
@@ -124,6 +125,7 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success(response, "배정 가능한 팀원 목록 조회가 완료되었습니다."));
     }
 
+    // 프로젝트에 이미 배정된 팀원 중, Task에 배정 가능한 사람
     @GetMapping("/{projectId}/members/assignable")
     public ResponseEntity<ApiResponse<List<AssignableMemberDto>>> getAssignableMembers(
             @PathVariable Long projectId,

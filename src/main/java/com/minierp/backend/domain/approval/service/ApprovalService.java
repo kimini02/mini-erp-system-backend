@@ -64,8 +64,8 @@ public class ApprovalService {
      * 연차 신청 생성
      */
     @Transactional
-    public LeaveRequestResponseDto createLeaveRequest(LeaveRequestCreateDto dto, String loginId) {
-        User requester = userRepository.findByLoginId(loginId)
+    public LeaveRequestResponseDto createLeaveRequest(LeaveRequestCreateDto dto, Long requesterUserId) {
+        User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (containsWeekendOrHoliday(dto.getStartDate(), dto.getEndDate())) {
@@ -89,11 +89,11 @@ public class ApprovalService {
      * 연차 승인 (Absolute Rule: @Transactional 내에서 상태 변경 및 User 연차 차감)
      */
     @Transactional
-    public LeaveRequestResponseDto approveLeaveRequest(Long requestId, String loginId) {
+    public LeaveRequestResponseDto approveLeaveRequest(Long requestId, Long approverUserId) {
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결재 요청을 찾을 수 없습니다."));
 
-        User approver = userRepository.findByLoginId(loginId)
+        User approver = userRepository.findById(approverUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "승인자 정보를 찾을 수 없습니다."));
 
         validateApprovalPermission(leaveRequest, approver);
@@ -112,11 +112,11 @@ public class ApprovalService {
      * 연차 반려
      */
     @Transactional
-    public LeaveRequestResponseDto rejectLeaveRequest(Long requestId, String loginId, RejectRequestDto rejectDto) {
+    public LeaveRequestResponseDto rejectLeaveRequest(Long requestId, Long approverUserId, RejectRequestDto rejectDto) {
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결재 요청을 찾을 수 없습니다."));
 
-        User approver = userRepository.findByLoginId(loginId)
+        User approver = userRepository.findById(approverUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "승인자 정보를 찾을 수 없습니다."));
 
         validateApprovalPermission(leaveRequest, approver);
@@ -132,8 +132,8 @@ public class ApprovalService {
     /**
      * 특정 사용자의 연차 신청 내역 조회
      */
-    public List<LeaveRequestResponseDto> getMyLeaveRequests(String loginId) {
-        User user = userRepository.findByLoginId(loginId)
+    public List<LeaveRequestResponseDto> getMyLeaveRequests(Long requesterUserId) {
+        User user = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         return leaveRequestRepository.findAll().stream()
@@ -145,8 +145,8 @@ public class ApprovalService {
     /**
      * 모든 연차 신청 내역 조회 (관리자용)
      */
-    public List<LeaveRequestResponseDto> getAllLeaveRequests(String loginId) {
-        User requester = userRepository.findByLoginId(loginId)
+    public List<LeaveRequestResponseDto> getAllLeaveRequests(Long requesterUserId) {
+        User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // USER: 본인 내역만 조회
@@ -163,8 +163,8 @@ public class ApprovalService {
                 .collect(Collectors.toList());
     }
 
-    public LeaveBalanceResponseDto getLeaveBalance(String loginId) {
-        User user = userRepository.findByLoginId(loginId)
+    public LeaveBalanceResponseDto getLeaveBalance(Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         return new LeaveBalanceResponseDto(
