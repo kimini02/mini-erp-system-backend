@@ -51,6 +51,31 @@ class TaskTest {
     }
 
     @Test
+    @DisplayName("업무 수정 시 제목, 내용, 마감일, 우선순위가 변경된다")
+    void updateTask_success() {
+        Task task = Task.create(
+                "기존 제목",
+                "기존 내용",
+                LocalDate.of(2026, 4, 30),
+                TaskStatus.TODO,
+                Priority.LOW,
+                createProject()
+        );
+
+        task.update(
+                "수정된 제목",
+                "수정된 내용",
+                LocalDate.of(2026, 5, 15),
+                Priority.HIGH
+        );
+
+        assertThat(task.getTaskTitle()).isEqualTo("수정된 제목");
+        assertThat(task.getTaskContent()).isEqualTo("수정된 내용");
+        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 5, 15));
+        assertThat(task.getPriority()).isEqualTo(Priority.HIGH);
+    }
+
+    @Test
     @DisplayName("완료되지 않았고 마감일이 지난 업무는 지연 상태로 판단한다")
     void isOverdue_whenTaskIsPastDueAndNotDone_returnsTrue() {
         Task task = Task.create(

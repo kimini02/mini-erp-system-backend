@@ -62,4 +62,53 @@ class ProjectTest {
 
         assertThat(project.getStatus()).isEqualTo(ProjectStatus.PROGRESS);
     }
+
+    @Test
+    @DisplayName("프로젝트 수정 시 제목, 내용, 기간, 우선순위가 변경된다")
+    void updateProject_success() {
+        Project project = Project.create(
+                "기존 제목",
+                "기존 내용",
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 30),
+                Priority.LOW
+        );
+
+        project.update(
+                "수정된 제목",
+                "수정된 내용",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 6, 30),
+                Priority.HIGH
+        );
+
+        assertThat(project.getTitle()).isEqualTo("수정된 제목");
+        assertThat(project.getContent()).isEqualTo("수정된 내용");
+        assertThat(project.getStartDate()).isEqualTo(LocalDate.of(2026, 5, 1));
+        assertThat(project.getEndDate()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(project.getPriority()).isEqualTo(Priority.HIGH);
+    }
+
+    @Test
+    @DisplayName("프로젝트 수정 시 종료일이 시작일보다 빠르면 예외가 발생한다")
+    void updateProject_invalidPeriod_throwsException() {
+        Project project = Project.create(
+                "제목",
+                "내용",
+                LocalDate.of(2026, 4, 1),
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
+        );
+
+        assertThatThrownBy(() -> project.update(
+                "제목",
+                "내용",
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 4, 1),
+                Priority.MEDIUM
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_PROJECT_PERIOD));
+    }
 }

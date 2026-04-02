@@ -10,6 +10,7 @@ import com.minierp.backend.domain.project.dto.AvailableMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.ProjectUpdateRequestDto;
 import com.minierp.backend.domain.project.service.ProjectService;
 import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.global.exception.BusinessException;
@@ -55,6 +56,20 @@ public class ProjectController {
                 extractUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 목록 조회가 완료되었습니다."));
+    }
+
+    @PutMapping("/{projectId}")
+    public ResponseEntity<ApiResponse<ProjectResponseDto>> updateProject(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ProjectUpdateRequestDto request,
+            Authentication authentication
+    ) {
+        ProjectResponseDto response = projectService.updateProject(
+                projectId,
+                request,
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "프로젝트가 수정되었습니다."));
     }
 
     @PostMapping("/{projectId}/members")

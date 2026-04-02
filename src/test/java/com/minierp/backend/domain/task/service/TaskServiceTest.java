@@ -8,6 +8,7 @@ import com.minierp.backend.domain.task.dto.TaskCreateRequestDto;
 import com.minierp.backend.domain.task.dto.RecentAssignmentDto;
 import com.minierp.backend.domain.task.dto.TaskResponseDto;
 import com.minierp.backend.domain.task.dto.TaskStatusUpdateDto;
+import com.minierp.backend.domain.task.dto.TaskUpdateRequestDto;
 import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskAssignment;
 import com.minierp.backend.global.entity.Priority;
@@ -217,6 +218,127 @@ class TaskServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.TASK_ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("관리자는 업무 제목, 내용, 마감일, 우선순위를 수정할 수 있다")
+    void updateTask_asAdmin_success() {
+        Long taskId = 1L;
+        Task task = createTask(taskId, 1L, TaskStatus.TODO);
+        given(taskRepository.findById(taskId)).willReturn(Optional.of(task));
+
+        TaskResponseDto response = taskService.updateTask(
+                taskId,
+                TaskUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 10),
+                        Priority.HIGH
+                ),
+                1L,
+                UserRole.ADMIN
+        );
+
+        assertThat(task.getTaskTitle()).isEqualTo("수정된 제목");
+        assertThat(task.getTaskContent()).isEqualTo("수정된 내용");
+        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 5, 10));
+        assertThat(task.getPriority()).isEqualTo(Priority.HIGH);
+        assertThat(response.getTaskTitle()).isEqualTo("수정된 제목");
+    }
+
+    @Test
+    @DisplayName("담당 팀장은 본인 프로젝트 업무를 수정할 수 있다")
+    void updateTask_asTeamLeader_success() {
+        Long taskId = 1L;
+        Long leaderId = 20L;
+        Task task = createTask(taskId, 1L, TaskStatus.TODO);
+        ReflectionTestUtils.setField(task.getProject(), "leader", createUser(leaderId, UserRole.TEAM_LEADER));
+        given(taskRepository.findById(taskId)).willReturn(Optional.of(task));
+        given(projectRepository.findById(1L)).willReturn(Optional.of(task.getProject()));
+
+        TaskResponseDto response = taskService.updateTask(
+                taskId,
+                TaskUpdateRequestDto.of(
+                        "팀장 수정 제목",
+                        "팀장 수정 내용",
+                        LocalDate.of(2026, 5, 20),
+                        Priority.MEDIUM
+                ),
+                leaderId,
+                UserRole.TEAM_LEADER
+        );
+
+        assertThat(task.getTaskTitle()).isEqualTo("팀장 수정 제목");
+        assertThat(task.getTaskContent()).isEqualTo("팀장 수정 내용");
+        assertThat(task.getEndDate()).isEqualTo(LocalDate.of(2026, 5, 20));
+        assertThat(response.getTaskTitle()).isEqualTo("팀장 수정 제목");
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 업무를 수정할 수 없다")
+    void updateTask_asUser_throwsAccessDenied() {
+        assertThatThrownBy(() -> taskService.updateTask(
+                1L,
+                TaskUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 10),
+                        Priority.HIGH
+                ),
+                10L,
+                UserRole.USER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("다른 프로젝트 팀장은 업무를 수정할 수 없다")
+    void updateTask_asOtherTeamLeader_throwsAccessDenied() {
+        Long taskId = 1L;
+        Long leaderId = 20L;
+        Task task = createTask(taskId, 1L, TaskStatus.TODO);
+        ReflectionTestUtils.setField(task.getProject(), "leader", createUser(30L, UserRole.TEAM_LEADER));
+        given(taskRepository.findById(taskId)).willReturn(Optional.of(task));
+        given(projectRepository.findById(1L)).willReturn(Optional.of(task.getProject()));
+
+        assertThatThrownBy(() -> taskService.updateTask(
+                taskId,
+                TaskUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 10),
+                        Priority.HIGH
+                ),
+                leaderId,
+                UserRole.TEAM_LEADER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 업무를 수정하면 예외가 발생한다")
+    void updateTask_whenTaskMissing_throwsTaskNotFound() {
+        Long taskId = 1L;
+        given(taskRepository.findById(taskId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> taskService.updateTask(
+                taskId,
+                TaskUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 10),
+                        Priority.HIGH
+                ),
+                1L,
+                UserRole.ADMIN
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.TASK_NOT_FOUND));
     }
 
     @Test

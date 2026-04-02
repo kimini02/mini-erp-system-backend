@@ -6,6 +6,7 @@ import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectMemberResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectProgressResponseDto;
 import com.minierp.backend.domain.project.dto.ProjectResponseDto;
+import com.minierp.backend.domain.project.dto.ProjectUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.AssignableMemberDto;
 import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.entity.Project;
@@ -181,6 +182,93 @@ class ProjectServiceTest {
         assertThat(responses).hasSize(2);
         assertThat(responses).extracting(ProjectResponseDto::getProjectId)
                 .containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("관리자는 프로젝트 제목, 내용, 기간, 우선순위를 수정할 수 있다")
+    void updateProject_asAdmin_success() {
+        Long projectId = 1L;
+        Project project = createProject(projectId, "기존 제목");
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+
+        ProjectResponseDto response = projectService.updateProject(
+                projectId,
+                ProjectUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 6, 30),
+                        Priority.HIGH
+                ),
+                UserRole.ADMIN
+        );
+
+        assertThat(project.getTitle()).isEqualTo("수정된 제목");
+        assertThat(project.getContent()).isEqualTo("수정된 내용");
+        assertThat(project.getStartDate()).isEqualTo(LocalDate.of(2026, 5, 1));
+        assertThat(project.getEndDate()).isEqualTo(LocalDate.of(2026, 6, 30));
+        assertThat(project.getPriority()).isEqualTo(Priority.HIGH);
+        assertThat(response.getTitle()).isEqualTo("수정된 제목");
+    }
+
+    @Test
+    @DisplayName("팀장은 프로젝트를 수정할 수 없다")
+    void updateProject_asTeamLeader_throwsAccessDenied() {
+        assertThatThrownBy(() -> projectService.updateProject(
+                1L,
+                ProjectUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 6, 30),
+                        Priority.HIGH
+                ),
+                UserRole.TEAM_LEADER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 프로젝트를 수정할 수 없다")
+    void updateProject_asUser_throwsAccessDenied() {
+        assertThatThrownBy(() -> projectService.updateProject(
+                1L,
+                ProjectUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 6, 30),
+                        Priority.HIGH
+                ),
+                UserRole.USER
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 프로젝트를 수정하면 예외가 발생한다")
+    void updateProject_whenProjectMissing_throwsProjectNotFound() {
+        Long projectId = 1L;
+        given(projectRepository.findById(projectId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> projectService.updateProject(
+                projectId,
+                ProjectUpdateRequestDto.of(
+                        "수정된 제목",
+                        "수정된 내용",
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 6, 30),
+                        Priority.HIGH
+                ),
+                UserRole.ADMIN
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.PROJECT_NOT_FOUND));
     }
 
     @Test
