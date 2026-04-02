@@ -1,11 +1,15 @@
 package com.minierp.backend.domain.project.entity;
 
+import com.minierp.backend.domain.user.entity.User;
+import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.global.entity.Priority;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.lang.reflect.Constructor;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,5 +114,38 @@ class ProjectTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.INVALID_PROJECT_PERIOD));
+    }
+
+    @Test
+    @DisplayName("프로젝트 팀장을 변경할 수 있다")
+    void assignLeader_success() {
+        Project project = Project.create(
+                "ERP 재구축",
+                "사내 업무 시스템 고도화",
+                LocalDate.of(2026, 3, 31),
+                LocalDate.of(2026, 4, 30),
+                Priority.MEDIUM
+        );
+        User leader = createUser(20L, UserRole.TEAM_LEADER);
+
+        project.assignLeader(leader);
+
+        assertThat(project.getLeader()).isEqualTo(leader);
+        assertThat(project.getLeader().getId()).isEqualTo(20L);
+    }
+
+    private User createUser(Long id, UserRole role) {
+        User user;
+        try {
+            Constructor<User> constructor = User.class.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            user = constructor.newInstance();
+        } catch (Exception e) {
+            throw new IllegalStateException("User 테스트 객체 생성에 실패했습니다.", e);
+        }
+        ReflectionTestUtils.setField(user, "id", id);
+        ReflectionTestUtils.setField(user, "userName", "사용자" + id);
+        ReflectionTestUtils.setField(user, "userRole", role);
+        return user;
     }
 }

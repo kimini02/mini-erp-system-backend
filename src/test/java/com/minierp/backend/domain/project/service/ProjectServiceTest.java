@@ -272,6 +272,58 @@ class ProjectServiceTest {
     }
 
     @Test
+    @DisplayName("관리자는 프로젝트 팀장을 변경할 수 있다")
+    void updateProjectLeader_asAdmin_success() {
+        Long projectId = 1L;
+        Long leaderId = 20L;
+        Project project = createProject(projectId, "ERP 재구축");
+        User leader = createUser(leaderId, UserRole.TEAM_LEADER);
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(project));
+        given(userRepository.findById(leaderId)).willReturn(Optional.of(leader));
+
+        ProjectResponseDto response = projectService.updateProjectLeader(projectId, leaderId, UserRole.ADMIN);
+
+        assertThat(project.getLeader()).isEqualTo(leader);
+        assertThat(response.getLeaderId()).isEqualTo(leaderId);
+        assertThat(response.getLeaderName()).isEqualTo("사용자20");
+    }
+
+    @Test
+    @DisplayName("팀장이 아닌 사용자를 프로젝트 팀장으로 변경하면 예외가 발생한다")
+    void updateProjectLeader_withInvalidLeaderRole_throwsException() {
+        Long projectId = 1L;
+        Long leaderId = 20L;
+        given(projectRepository.findById(projectId)).willReturn(Optional.of(createProject(projectId, "ERP 재구축")));
+        given(userRepository.findById(leaderId)).willReturn(Optional.of(createUser(leaderId, UserRole.USER)));
+
+        assertThatThrownBy(() -> projectService.updateProjectLeader(projectId, leaderId, UserRole.ADMIN))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_LEADER_ROLE));
+    }
+
+    @Test
+    @DisplayName("관리자가 아니면 프로젝트 팀장을 변경할 수 없다")
+    void updateProjectLeader_asTeamLeader_throwsAccessDenied() {
+        assertThatThrownBy(() -> projectService.updateProjectLeader(1L, 20L, UserRole.TEAM_LEADER))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.ACCESS_DENIED));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 프로젝트의 팀장을 변경하면 예외가 발생한다")
+    void updateProjectLeader_whenProjectMissing_throwsProjectNotFound() {
+        Long projectId = 1L;
+        given(projectRepository.findById(projectId)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> projectService.updateProjectLeader(projectId, 20L, UserRole.ADMIN))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(ErrorCode.PROJECT_NOT_FOUND));
+    }
+
+    @Test
     @DisplayName("관리자는 프로젝트 팀원을 배정할 수 있다")
     void addMember_asAdmin_success() {
         Long projectId = 1L;

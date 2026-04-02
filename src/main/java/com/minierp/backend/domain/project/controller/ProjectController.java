@@ -4,6 +4,7 @@ import com.minierp.backend.domain.project.dto.AssignableMemberDto;
 import com.minierp.backend.domain.project.dto.LeaderSummaryDto;
 import com.minierp.backend.domain.project.dto.MemberRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectCreateRequestDto;
+import com.minierp.backend.domain.project.dto.ProjectLeaderUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.ProjectPermissionDto;
 import com.minierp.backend.domain.project.dto.ProjectPermissionUpdateRequestDto;
 import com.minierp.backend.domain.project.dto.AvailableMemberResponseDto;
@@ -24,6 +25,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -70,6 +72,20 @@ public class ProjectController {
                 extractUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트가 수정되었습니다."));
+    }
+
+    @PatchMapping("/{projectId}/leader")
+    public ResponseEntity<ApiResponse<ProjectResponseDto>> updateProjectLeader(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ProjectLeaderUpdateRequestDto request,
+            Authentication authentication
+    ) {
+        ProjectResponseDto response = projectService.updateProjectLeader(
+                projectId,
+                request.getLeaderId(),
+                extractUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 팀장이 변경되었습니다."));
     }
 
     @PostMapping("/{projectId}/members")
