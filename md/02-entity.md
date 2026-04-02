@@ -361,6 +361,7 @@ public class TaskAssignment extends BaseEntity {
 | **endDate** | `LocalDate` | `end_date` | NOT NULL | 휴가 종료일 | 시작일 이후 |
 | **usedDays** | `BigDecimal` | `used_days` | NOT NULL, scale=1 | 실제 차감 일수 | 서버 계산 |
 | **appStatus** | `LeaveStatus` | `app_status` | NOT NULL, ENUM | 결재 상태 | PENDING, APPROVED, REJECTED |
+| **requestReason** | `String` | `request_reason` | LENGTH(500) | 신청 사유 | 신청 시 선택 입력 |
 | **rejectReason** | `String` | `reject_reason` | LENGTH(500) | 반려 사유 | 반려 시 필수 |
 
 #### 4.5.2 핵심 비즈니스 메서드

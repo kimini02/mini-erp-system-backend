@@ -14,4 +14,6 @@ public class LeaveRequestCreateDto {
     private LeaveType appType;
     private LocalDate startDate;
     private LocalDate endDate;
+    // 신청자가 연차 사유를 작성할 수 있는 선택 입력값
+    private String requestReason;
 }

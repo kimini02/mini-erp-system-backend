@@ -77,6 +77,7 @@ public class ApprovalService {
                 .appType(dto.getAppType())
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
+                .requestReason(dto.getRequestReason())
                 .build();
 
         // usedDays 계산 로직은 LeaveRequest 생성자/메서드 내에 포함되어 있음 (주말 제외)

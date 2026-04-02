@@ -28,6 +28,7 @@ public class LeaveRequestResponseDto {
     private BigDecimal usedDays;
     private LeaveStatus appStatus;
     private String rejectReason;
+    private String requestReason;
     private LocalDateTime createdAt;
 
     public static LeaveRequestResponseDto from(LeaveRequest leaveRequest) {
@@ -43,6 +44,7 @@ public class LeaveRequestResponseDto {
                 .usedDays(leaveRequest.getUsedDays())
                 .appStatus(leaveRequest.getAppStatus())
                 .rejectReason(leaveRequest.getRejectReason())
+                .requestReason(leaveRequest.getRequestReason())
                 .createdAt(leaveRequest.getCreatedAt())
                 .build();
     }

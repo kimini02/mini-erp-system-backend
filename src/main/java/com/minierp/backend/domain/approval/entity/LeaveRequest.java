@@ -48,12 +48,16 @@ public class LeaveRequest extends BaseEntity {
     @Column(name = "reject_reason", length = 500)
     private String rejectReason;
 
+    @Column(name = "request_reason", length = 500)
+    private String requestReason;
+
     @Builder
-    public LeaveRequest(User requester, LeaveType appType, LocalDate startDate, LocalDate endDate) {
+    public LeaveRequest(User requester, LeaveType appType, LocalDate startDate, LocalDate endDate, String requestReason) {
         this.requester = requester;
         this.appType = appType;
         this.startDate = startDate;
         this.endDate = endDate;
+        this.requestReason = requestReason;
         this.appStatus = LeaveStatus.PENDING;
         calculateUsedDays(Collections.emptyList()); // 기본적으로 공휴일 없이 계산
     }

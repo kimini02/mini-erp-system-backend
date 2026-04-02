@@ -744,11 +744,13 @@ Request Body:
 {
   "appType": "ANNUAL",
   "startDate": "2026-04-06",
-  "endDate": "2026-04-06"
+  "endDate": "2026-04-06",
+  "requestReason": "가족 일정으로 인한 연차 신청"
 }
 ```
 
 Validation Rules:
+- 신청 사유(`requestReason`)는 선택 입력이며, 승인/조회 응답의 `requestReason`으로 노출됨
 - 신청 기간에 주말/공휴일/대체공휴일 포함 시 거부
 - 에러 코드: `LEAVE_DATE_NOT_WORKING_DAY` (422)
 
