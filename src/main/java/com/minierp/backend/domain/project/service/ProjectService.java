@@ -117,6 +117,21 @@ public class ProjectService {
     }
 
     @Transactional
+    public ProjectResponseDto updateProjectLeader(Long projectId, Long leaderId, UserRole currentUserRole) {
+        validateAdminRole(currentUserRole);
+
+        Project project = findProjectOrThrow(projectId);
+        User leader = findUserOrThrow(leaderId);
+
+        if (leader.getUserRole() != UserRole.TEAM_LEADER) {
+            throw new BusinessException(ErrorCode.INVALID_LEADER_ROLE);
+        }
+
+        project.assignLeader(leader);
+        return ProjectResponseDto.from(project);
+    }
+
+    @Transactional
     public ProjectMemberResponseDto addMember(
             Long projectId,
             Long userId,
