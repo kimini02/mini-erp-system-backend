@@ -549,7 +549,29 @@ Headers:
 - `200 OK`
 - 해당 유저의 Task 배정도 함께 삭제됨
 
-### 10-8) 프로젝트 진행률 조회
+### 10-8) 프로젝트 수정 (ADMIN만 가능)
+`PUT {{baseUrl}}/api/v1/projects/{projectId}`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "title": "ERP 시스템 고도화 (수정)",
+  "content": "사내 업무 시스템 리뉴얼 - 2차 범위 확정",
+  "startDate": "2026-04-01",
+  "endDate": "2026-07-31",
+  "priority": "HIGH"
+}
+```
+
+기대:
+- `200 OK`
+- 수정된 프로젝트 정보 반환
+- TEAM_LEADER/USER가 시도 → `403`
+
+### 10-9) 프로젝트 진행률 조회
 `GET {{baseUrl}}/api/v1/projects/{projectId}/progress`
 
 Headers:
@@ -609,7 +631,29 @@ Headers:
 기대:
 - Task 상세 정보 + 담당자 목록
 
-### 11-4) Task 상태 변경
+### 11-4) Task 수정 (ADMIN 또는 담당 팀장)
+`PUT {{baseUrl}}/api/v1/tasks/{taskId}`
+
+Headers:
+- `Authorization: Bearer {{managerToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "taskTitle": "내 업무 화면 구현 (수정)",
+  "taskContent": "React 페이지 및 API 연동 - 범위 변경",
+  "endDate": "2026-05-15",
+  "priority": "MEDIUM"
+}
+```
+
+기대:
+- `200 OK`
+- 수정된 Task 정보 반환
+- USER가 시도 → `403`
+- 상태(taskState)는 이 API로 변경 불가 (기존 PATCH /status 사용)
+
+### 11-5) Task 상태 변경
 `PATCH {{baseUrl}}/api/v1/tasks/{taskId}/status`
 
 Headers:
