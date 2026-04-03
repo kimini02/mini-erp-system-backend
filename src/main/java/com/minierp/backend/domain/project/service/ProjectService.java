@@ -49,17 +49,14 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final AccessPolicy accessPolicy;
 
-    // 프로젝트 생성: ADMIN만 가능, 담당 팀장은 TEAM_LEADER 역할만 배정 가능
+    // 프로젝트 생성: ADMIN만 가능, 담당 리더는 TEAM_LEADER 또는 ADMIN 역할만 배정 가능
     @Transactional
     public ProjectResponseDto createProject(ProjectCreateRequestDto request, UserRole currentUserRole) {
         validateAdminRole(currentUserRole);
 
-        User leader = null;
-        if (request.getLeaderId() != null) {
-            leader = findUserOrThrow(request.getLeaderId());
-            if (leader.getUserRole() != UserRole.TEAM_LEADER) {
-                throw new BusinessException(ErrorCode.INVALID_LEADER_ROLE);
-            }
+        User leader = findUserOrThrow(request.getLeaderId());
+        if (leader.getUserRole() != UserRole.TEAM_LEADER && leader.getUserRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.INVALID_LEADER_ROLE);
         }
 
         Project project = Project.create(
@@ -125,7 +122,7 @@ public class ProjectService {
         Project project = findProjectOrThrow(projectId);
         User leader = findUserOrThrow(leaderId);
 
-        if (leader.getUserRole() != UserRole.TEAM_LEADER) {
+        if (leader.getUserRole() != UserRole.TEAM_LEADER && leader.getUserRole() != UserRole.ADMIN) {
             throw new BusinessException(ErrorCode.INVALID_LEADER_ROLE);
         }
 

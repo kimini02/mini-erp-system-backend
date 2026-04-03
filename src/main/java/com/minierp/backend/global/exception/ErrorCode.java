@@ -36,7 +36,7 @@ public enum ErrorCode {
     PROJECT_NOT_FOUND(HttpStatus.NOT_FOUND, "프로젝트를 찾을 수 없습니다."),
     NO_ASSIGNED_PROJECT(HttpStatus.FORBIDDEN, "배정된 프로젝트가 없습니다. 관리소장에게 프로젝트 배정을 요청하세요."),
     LEADER_NOT_FOUND(HttpStatus.NOT_FOUND, "팀장 정보를 찾을 수 없습니다."),
-    INVALID_LEADER_ROLE(HttpStatus.BAD_REQUEST, "팀장 역할을 가진 사용자만 담당 팀장으로 지정할 수 있습니다."),
+    INVALID_LEADER_ROLE(HttpStatus.BAD_REQUEST, "관리 소장 또는 팀장 역할을 가진 사용자만 담당 리더로 지정할 수 있습니다."),
     INVALID_PROJECT_PERIOD(HttpStatus.BAD_REQUEST, "종료일은 시작일보다 빠를 수 없습니다."),
     DUPLICATE_PROJECT_MEMBER(HttpStatus.CONFLICT, "이미 프로젝트에 배정된 팀원입니다."),
     PROJECT_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "프로젝트 팀원 정보를 찾을 수 없습니다."),
