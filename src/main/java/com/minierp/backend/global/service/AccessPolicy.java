@@ -40,28 +40,28 @@ public class AccessPolicy {
             throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY, "권한 정책상 처리할 수 없는 결재 대상입니다.");
         }
 
-        if (requesterRole.isTopManager()) {
-            if (!requesterId.equals(approverId)) {
-                throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                        "관리소장 신청 건은 본인만 결재할 수 있습니다.");
-            }
-            return;
-        }
-
+        // USER 신청 건: TEAM_LEADER만 처리 가능
         if (requesterRole.isGeneralUser()) {
-            if (approverRole.isTeamLeader() || approverRole.isTopManager()) {
+            if (approverRole.isTeamLeader()) {
                 return;
             }
             throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                    "일반 사용자 신청 건은 팀장 또는 관리소장만 결재할 수 있습니다.");
+                    "일반 사용자 신청 건은 팀장만 결재할 수 있습니다.");
         }
 
+        // TEAM_LEADER 신청 건: ADMIN만 처리 가능
         if (requesterRole.isTeamLeader()) {
             if (approverRole.isTopManager()) {
                 return;
             }
             throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
                     "팀장 신청 건은 관리소장만 결재할 수 있습니다.");
+        }
+
+        // ADMIN 신청 건: 상위 권한이 없어 처리 불가
+        if (requesterRole.isTopManager()) {
+            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
+                    "관리소장 신청 건은 처리할 수 있는 상위 권한이 없습니다.");
         }
 
         throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,

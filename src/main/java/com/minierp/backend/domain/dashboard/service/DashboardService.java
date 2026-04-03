@@ -19,6 +19,7 @@ import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.minierp.backend.domain.approval.dto.LeaveRequestResponseDto;
 
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -105,12 +106,18 @@ public class DashboardService {
         double taskCompletionRate = totalTaskCount == 0 ? 0.0 : (doneTaskCount * 100.0) / totalTaskCount;
         long pendingApprovalCount = leaveRequestRepository.countByAppStatus(LeaveStatus.PENDING);
 
+        List<LeaveRequestResponseDto> pendingApprovals = leaveRequestRepository.findAll().stream()
+                .filter(req -> req.getAppStatus() == LeaveStatus.PENDING)
+                .map(LeaveRequestResponseDto::from)
+                .toList();
+
         return AdminDashboardResponseDto.of(
                 totalUsers,
                 activeProjectCount,
                 pendingApprovalCount,
                 taskCompletionRate,
-                totalTaskCount
+                totalTaskCount,
+                pendingApprovals
         );
     }
 
