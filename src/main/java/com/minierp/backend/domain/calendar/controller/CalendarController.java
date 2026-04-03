@@ -2,8 +2,8 @@ package com.minierp.backend.domain.calendar.controller;
 
 import com.minierp.backend.domain.calendar.dto.CalendarEventResponseDto;
 import com.minierp.backend.domain.calendar.service.CalendarService;
-import com.minierp.backend.global.exception.BusinessException;
-import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.response.ApiResponse;
+import com.minierp.backend.global.security.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,30 +17,23 @@ import java.util.List;
 public class CalendarController {
 
     private final CalendarService calendarService;
+    private final CurrentUserResolver currentUserResolver;
 
     /**
      * 캘린더 통합 이벤트 조회 (연차 + 특근)
      * GET /api/v1/calendar/events?year=2026&month=3
      */
     @GetMapping("/events")
-    public ResponseEntity<List<CalendarEventResponseDto>> getCalendarEvents(
+    public ResponseEntity<ApiResponse<List<CalendarEventResponseDto>>> getCalendarEvents(
             Authentication authentication,
             @RequestParam int year,
             @RequestParam int month) {
 
-        List<CalendarEventResponseDto> events = calendarService.getCalendarEvents(extractUserId(authentication), year, month);
-        return ResponseEntity.ok(events);
-    }
-
-    private Long extractUserId(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        try {
-            return Long.valueOf(authentication.getName());
-        } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 사용자 정보가 올바르지 않습니다.");
-        }
+        List<CalendarEventResponseDto> events = calendarService.getCalendarEvents(
+                currentUserResolver.resolveUserId(authentication),
+                year,
+                month
+        );
+        return ResponseEntity.ok(ApiResponse.success(events, "캘린더 이벤트 조회가 완료되었습니다."));
     }
 }

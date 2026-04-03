@@ -23,6 +23,7 @@ import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +47,7 @@ public class ProjectService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final AccessPolicy accessPolicy;
 
     // 프로젝트 생성: ADMIN만 가능, 담당 팀장은 TEAM_LEADER 역할만 배정 가능
     @Transactional
@@ -329,15 +331,11 @@ public class ProjectService {
     }
 
     private void validateAdminRole(UserRole currentUserRole) {
-        if (currentUserRole != UserRole.ADMIN) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
+        accessPolicy.requireAdmin(currentUserRole);
     }
 
     private void validateAdminOrLeaderRole(UserRole currentUserRole) {
-        if (currentUserRole != UserRole.ADMIN && currentUserRole != UserRole.TEAM_LEADER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
+        accessPolicy.requireAdminOrLeader(currentUserRole);
     }
 
     private void validateCurrentUserId(Long currentUserId) {

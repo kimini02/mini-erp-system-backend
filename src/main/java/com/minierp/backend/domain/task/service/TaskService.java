@@ -18,6 +18,7 @@ import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ public class TaskService {
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final AccessPolicy accessPolicy;
 
     // Task 생성: ADMIN 또는 담당 팀장만 가능, 배정자는 해당 프로젝트 멤버여야 함
     @Transactional
@@ -237,15 +239,11 @@ public class TaskService {
     }
 
     private void validateAdminRole(UserRole currentUserRole) {
-        if (currentUserRole != UserRole.ADMIN) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
+        accessPolicy.requireAdmin(currentUserRole);
     }
 
     private void validateAdminOrLeaderRole(UserRole currentUserRole) {
-        if (currentUserRole == UserRole.USER) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
+        accessPolicy.requireAdminOrLeader(currentUserRole);
     }
 
     private void validateCurrentUserId(Long currentUserId) {

@@ -9,6 +9,7 @@ import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final AccessPolicy accessPolicy;
 
     @Transactional(readOnly = true)
     public UserListResponseDto getUsers(int page, int size, String role, String search, Long requesterUserId) {
@@ -42,19 +44,21 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponseDto getUser(Long userId, Long requesterUserId, boolean isAdmin) {
-        User user = getUserOrThrow(userId);
-        validateSelfOrAdmin(user, requesterUserId, isAdmin);
-        return UserResponseDto.detail(user);
+    public UserResponseDto getUser(Long userId, Long requesterUserId) {
+        User requester = getUserOrThrow(requesterUserId);
+        User target = getUserOrThrow(userId);
+        validateSelfOrAdmin(target, requester);
+        return UserResponseDto.detail(target);
     }
 
     @Transactional
-    public UserResponseDto updateUser(Long userId, UserUpdateRequestDto requestDto, Long requesterUserId, boolean isAdmin) {
-        User user = getUserOrThrow(userId);
-        validateSelfOrAdmin(user, requesterUserId, isAdmin);
+    public UserResponseDto updateUser(Long userId, UserUpdateRequestDto requestDto, Long requesterUserId) {
+        User requester = getUserOrThrow(requesterUserId);
+        User target = getUserOrThrow(userId);
+        validateSelfOrAdmin(target, requester);
 
-        user.updateProfile(requestDto.getName(), requestDto.getPosition());
-        return UserResponseDto.detail(user);
+        target.updateProfile(requestDto.getName(), requestDto.getPosition());
+        return UserResponseDto.detail(target);
     }
 
     @Transactional
@@ -69,8 +73,8 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
-    private void validateSelfOrAdmin(User user, Long requesterUserId, boolean isAdmin) {
-        if (!isAdmin && !user.getId().equals(requesterUserId)) {
+    private void validateSelfOrAdmin(User target, User requester) {
+        if (!accessPolicy.canAccessSelfOrAdmin(target.getId(), requester.getId(), requester.getUserRole())) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
     }

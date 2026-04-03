@@ -5,10 +5,10 @@ import com.minierp.backend.domain.overtime.dto.OvertimeResponseDto;
 import com.minierp.backend.domain.overtime.entity.OvertimeRequest;
 import com.minierp.backend.domain.overtime.repository.OvertimeRequestRepository;
 import com.minierp.backend.domain.user.entity.User;
-import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +25,7 @@ public class OvertimeService {
 
     private final OvertimeRequestRepository overtimeRequestRepository;
     private final UserRepository userRepository;
+    private final AccessPolicy accessPolicy;
 
     /**
      * 특근 신청
@@ -103,7 +104,7 @@ public class OvertimeService {
     public List<OvertimeResponseDto> getOvertimeRequests(Long accessorUserId) {
         User accessor = getUserById(accessorUserId);
 
-        if (accessor.getUserRole().isGeneralUser()) {
+        if (!accessPolicy.canViewAllRequests(accessor.getUserRole())) {
             return overtimeRequestRepository.findByRequester_Id(accessor.getId()).stream()
                     .map(OvertimeResponseDto::from)
                     .collect(Collectors.toList());
@@ -126,47 +127,17 @@ public class OvertimeService {
      * 3) requester=ADMIN: ADMIN 본인만 결재 가능(셀프 허용)
      */
     private void validateApprovalHierarchy(User requester, User approver) {
-        UserRole requesterRole = requester.getUserRole();
-        UserRole approverRole = approver.getUserRole();
-
-        // 1) 일반 사원 신청: 팀장 또는 관리소장 결재 가능
-        if (requesterRole.isGeneralUser()) {
-            if (approverRole.isTeamLeader() || approverRole.isTopManager()) {
-                return;
-            }
-            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                    "일반 사용자 특근 신청은 팀장 또는 관리 소장만 결재할 수 있습니다.");
-        }
-
-        // 2) 팀장 신청: 관리소장만 결재 가능
-        if (requesterRole.isTeamLeader()) {
-            if (approverRole.isTopManager()) {
-                return;
-            }
-            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                    "팀장 특근 신청은 관리 소장만 결재할 수 있습니다.");
-        }
-
-        // 3) 관리소장 신청: 본인만 셀프 결재 가능
-        if (requesterRole.isTopManager()) {
-            if (approverRole.isTopManager() && requester.getId().equals(approver.getId())) {
-                return;
-            }
-            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                    "관리 소장 특근 신청은 본인만 결재할 수 있습니다.");
-        }
-
-        throw new BusinessException(ErrorCode.ACCESS_DENIED, "유효하지 않은 결재 권한입니다.");
+        accessPolicy.validateApprovalHierarchy(
+                requester.getUserRole(),
+                requester.getId(),
+                approver.getUserRole(),
+                approver.getId()
+        );
     }
 
     private OvertimeRequest getRequestOrThrow(Long requestId) {
         return overtimeRequestRepository.findById(requestId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.OVERTIME_NOT_FOUND));
-    }
-
-    private User getUserByLoginId(String loginId) {
-        return userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private User getUserById(Long userId) {

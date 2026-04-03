@@ -12,6 +12,7 @@ import com.minierp.backend.domain.user.entity.User;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +60,7 @@ public class ApprovalService {
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final UserRepository userRepository;
+    private final AccessPolicy accessPolicy;
 
     /**
      * 연차 신청 생성
@@ -70,6 +72,10 @@ public class ApprovalService {
 
         if (containsWeekendOrHoliday(dto.getStartDate(), dto.getEndDate())) {
             throw new BusinessException(ErrorCode.LEAVE_DATE_NOT_WORKING_DAY);
+        }
+
+        if (hasOverlappingActiveLeaveRequest(requesterUserId, dto.getStartDate(), dto.getEndDate())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "이미 신청한 연차가 존재합니다.");
         }
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
@@ -150,15 +156,13 @@ public class ApprovalService {
         User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // USER: 본인 내역만 조회
-        if (requester.getUserRole().isGeneralUser()) {
+        if (!accessPolicy.canViewAllRequests(requester.getUserRole())) {
             return leaveRequestRepository.findAll().stream()
                     .filter(req -> req.getRequester().getId().equals(requester.getId()))
                     .map(LeaveRequestResponseDto::from)
                     .collect(Collectors.toList());
         }
 
-        // TEAM_LEADER/ADMIN: 전체 내역 조회
         return leaveRequestRepository.findAll().stream()
                 .map(LeaveRequestResponseDto::from)
                 .collect(Collectors.toList());
@@ -237,6 +241,21 @@ public class ApprovalService {
         return holidays;
     }
 
+    // PENDING/APPROVED 상태의 겹치는 신청이 있으면 중복 신청으로 간주
+    private boolean hasOverlappingActiveLeaveRequest(Long requesterUserId, LocalDate startDate, LocalDate endDate) {
+        boolean hasPending = !leaveRequestRepository
+                .findOverlappingLeavesByRequester(requesterUserId, LeaveStatus.PENDING, startDate, endDate)
+                .isEmpty();
+
+        if (hasPending) {
+            return true;
+        }
+
+        return !leaveRequestRepository
+                .findOverlappingLeavesByRequester(requesterUserId, LeaveStatus.APPROVED, startDate, endDate)
+                .isEmpty();
+    }
+
     private void validateApprovalPermission(LeaveRequest leaveRequest, User approver) {
         if (leaveRequest.getAppStatus() != LeaveStatus.PENDING) {
             throw new BusinessException(ErrorCode.LEAVE_ALREADY_PROCESSED,
@@ -244,35 +263,11 @@ public class ApprovalService {
         }
 
         User requester = leaveRequest.getRequester();
-
-        // 3) 관리소장(ADMIN) 신청 건은 본인만 결재 가능 (셀프 결재 허용)
-        if (requester.getUserRole().isTopManager()) {
-            if (!requester.getId().equals(approver.getId())) {
-                throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                        "관리소장 신청 건은 본인만 결재할 수 있습니다.");
-            }
-            return;
-        }
-
-        // 1) 일반 사용자(USER) 신청 건: 팀장 또는 관리소장이 결재 가능
-        if (requester.getUserRole().isGeneralUser()) {
-            if (approver.getUserRole().isTeamLeader() || approver.getUserRole().isTopManager()) {
-                return;
-            }
-            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                    "일반 사용자 신청 건은 팀장 또는 관리소장만 결재할 수 있습니다.");
-        }
-
-        // 2) 팀장(TEAM_LEADER) 신청 건: 관리소장만 결재 가능
-        if (requester.getUserRole().isTeamLeader()) {
-            if (approver.getUserRole().isTopManager()) {
-                return;
-            }
-            throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                    "팀장 신청 건은 관리소장만 결재할 수 있습니다.");
-        }
-
-        throw new BusinessException(ErrorCode.APPROVAL_ADMIN_ONLY,
-                "권한 정책상 처리할 수 없는 결재 대상입니다.");
+        accessPolicy.validateApprovalHierarchy(
+                requester.getUserRole(),
+                requester.getId(),
+                approver.getUserRole(),
+                approver.getId()
+        );
     }
 }

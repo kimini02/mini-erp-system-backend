@@ -12,6 +12,7 @@ import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
 import com.minierp.backend.global.response.ApiResponse;
+import com.minierp.backend.global.security.CurrentUserResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ import java.util.List;
 public class TaskController {
 
     private final TaskService taskService;
+    private final CurrentUserResolver currentUserResolver;
 
     @PostMapping
     public ResponseEntity<ApiResponse<TaskResponseDto>> createTask(
@@ -43,8 +45,8 @@ public class TaskController {
     ) {
         TaskResponseDto response = taskService.createTask(
                 request,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Task가 생성되었습니다."));
@@ -53,8 +55,8 @@ public class TaskController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<TaskResponseDto>>> getTasks(Authentication authentication) {
         List<TaskResponseDto> response = taskService.getTasks(
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "업무 목록 조회가 완료되었습니다."));
     }
@@ -66,8 +68,8 @@ public class TaskController {
     ) {
         TaskResponseDto response = taskService.getTask(
                 taskId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "업무 상세 조회가 완료되었습니다."));
     }
@@ -81,8 +83,8 @@ public class TaskController {
         TaskResponseDto response = taskService.updateTask(
                 taskId,
                 request,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "업무가 수정되었습니다."));
     }
@@ -95,8 +97,8 @@ public class TaskController {
     ) {
         TaskResponseDto response = taskService.changeTaskStatus(
                 taskId,
-                extractUserId(authentication),
-                extractUserRole(authentication),
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication),
                 request
         );
         return ResponseEntity.ok(ApiResponse.success(response, "Task 상태가 변경되었습니다."));
@@ -111,8 +113,8 @@ public class TaskController {
         TaskAssignmentResponseDto response = taskService.addAssignment(
                 taskId,
                 request.getUserId(),
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "업무 담당자가 배정되었습니다."));
@@ -125,54 +127,33 @@ public class TaskController {
     ) {
         List<TaskAssignmentResponseDto> response = taskService.getAssignments(
                 taskId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "업무 담당자 목록 조회가 완료되었습니다."));
     }
 
     @DeleteMapping("/{taskId}/assignments/{userId}")
-    public ResponseEntity<Void> removeAssignment(
+    public ResponseEntity<ApiResponse<Void>> removeAssignment(
             @PathVariable Long taskId,
             @PathVariable Long userId,
             Authentication authentication
     ) {
-        taskService.removeAssignment(taskId, userId, extractUserId(authentication), extractUserRole(authentication));
-        return ResponseEntity.noContent().build();
+        taskService.removeAssignment(
+                taskId,
+                userId,
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.successMessage("업무 담당자 배정이 해제되었습니다."));
     }
 
     @GetMapping("/recent-assignments")
     public ResponseEntity<ApiResponse<List<RecentAssignmentDto>>> getRecentAssignments(Authentication authentication) {
         List<RecentAssignmentDto> response = taskService.getRecentAssignments(
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "최근 업무 배정 이력 조회가 완료되었습니다."));
-    }
-
-    private Long extractUserId(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        try {
-            return Long.valueOf(authentication.getName());
-        } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 사용자 정보가 올바르지 않습니다.");
-        }
-    }
-
-    private UserRole extractUserRole(Authentication authentication) {
-        if (authentication == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        return authentication.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .filter(authority -> authority.startsWith("ROLE_"))
-                .map(authority -> authority.replace("ROLE_", ""))
-                .map(UserRole::valueOf)
-                .findFirst()
-                .orElse(UserRole.USER);
     }
 }

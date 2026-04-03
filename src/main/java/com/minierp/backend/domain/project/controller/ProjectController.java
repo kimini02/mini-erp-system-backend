@@ -17,6 +17,7 @@ import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
 import com.minierp.backend.global.response.ApiResponse;
+import com.minierp.backend.global.security.CurrentUserResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -40,13 +41,14 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final CurrentUserResolver currentUserResolver;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProjectResponseDto>> createProject(
             @Valid @RequestBody ProjectCreateRequestDto request,
             Authentication authentication
     ) {
-        ProjectResponseDto response = projectService.createProject(request, extractUserRole(authentication));
+        ProjectResponseDto response = projectService.createProject(request, currentUserResolver.resolveUserRole(authentication));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "프로젝트가 생성되었습니다."));
     }
@@ -54,8 +56,8 @@ public class ProjectController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProjectResponseDto>>> getProjects(Authentication authentication) {
         List<ProjectResponseDto> response = projectService.getProjects(
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 목록 조회가 완료되었습니다."));
     }
@@ -69,7 +71,7 @@ public class ProjectController {
         ProjectResponseDto response = projectService.updateProject(
                 projectId,
                 request,
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트가 수정되었습니다."));
     }
@@ -83,7 +85,7 @@ public class ProjectController {
         ProjectResponseDto response = projectService.updateProjectLeader(
                 projectId,
                 request.getLeaderId(),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 팀장이 변경되었습니다."));
     }
@@ -97,21 +99,26 @@ public class ProjectController {
         ProjectMemberResponseDto response = projectService.addMember(
                 projectId,
                 request.getUserId(),
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "프로젝트 팀원이 배정되었습니다."));
     }
 
     @DeleteMapping("/{projectId}/members/{userId}")
-    public ResponseEntity<Void> removeMember(
+    public ResponseEntity<ApiResponse<Void>> removeMember(
             @PathVariable Long projectId,
             @PathVariable Long userId,
             Authentication authentication
     ) {
-        projectService.removeMember(projectId, userId, extractUserId(authentication), extractUserRole(authentication));
-        return ResponseEntity.noContent().build();
+        projectService.removeMember(
+                projectId,
+                userId,
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
+        );
+        return ResponseEntity.ok(ApiResponse.successMessage("프로젝트 팀원 배정이 해제되었습니다."));
     }
 
     @GetMapping("/{projectId}/members")
@@ -121,8 +128,8 @@ public class ProjectController {
     ) {
         List<ProjectMemberResponseDto> response = projectService.getMembers(
                 projectId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 팀원 목록 조회가 완료되었습니다."));
     }
@@ -135,8 +142,8 @@ public class ProjectController {
     ) {
         List<AvailableMemberResponseDto> response = projectService.getAvailableMembers(
                 projectId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "배정 가능한 팀원 목록 조회가 완료되었습니다."));
     }
@@ -149,8 +156,8 @@ public class ProjectController {
     ) {
         List<AssignableMemberDto> response = projectService.getAssignableMembers(
                 projectId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "배정 가능한 팀원 목록 조회가 완료되었습니다."));
     }
@@ -162,8 +169,8 @@ public class ProjectController {
     ) {
         List<ProjectPermissionDto> response = projectService.getUserProjectPermissions(
                 userId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "사용자 프로젝트 권한 조회가 완료되었습니다."));
     }
@@ -177,15 +184,15 @@ public class ProjectController {
         projectService.updateUserProjectPermissions(
                 userId,
                 request,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(null, "프로젝트 권한이 저장되었습니다."));
     }
 
     @GetMapping("/leaders")
     public ResponseEntity<ApiResponse<List<LeaderSummaryDto>>> getLeaders(Authentication authentication) {
-        List<LeaderSummaryDto> response = projectService.getLeaders(extractUserRole(authentication));
+        List<LeaderSummaryDto> response = projectService.getLeaders(currentUserResolver.resolveUserRole(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "팀장 목록 조회가 완료되었습니다."));
     }
 
@@ -196,35 +203,9 @@ public class ProjectController {
     ) {
         ProjectProgressResponseDto response = projectService.getProjectProgress(
                 projectId,
-                extractUserId(authentication),
-                extractUserRole(authentication)
+                currentUserResolver.resolveUserId(authentication),
+                currentUserResolver.resolveUserRole(authentication)
         );
         return ResponseEntity.ok(ApiResponse.success(response, "프로젝트 진행률 조회가 완료되었습니다."));
-    }
-
-    private Long extractUserId(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        try {
-            return Long.valueOf(authentication.getName());
-        } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "인증 사용자 정보가 올바르지 않습니다.");
-        }
-    }
-
-    private UserRole extractUserRole(Authentication authentication) {
-        if (authentication == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        return authentication.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .filter(authority -> authority.startsWith("ROLE_"))
-                .map(authority -> authority.replace("ROLE_", ""))
-                .map(UserRole::valueOf)
-                .findFirst()
-                .orElse(UserRole.USER);
     }
 }

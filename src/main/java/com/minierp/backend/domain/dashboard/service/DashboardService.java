@@ -15,6 +15,7 @@ import com.minierp.backend.domain.user.entity.UserRole;
 import com.minierp.backend.domain.user.repository.UserRepository;
 import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
+import com.minierp.backend.global.service.AccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ public class DashboardService {
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final AccessPolicy accessPolicy;
 
     public DashboardResponseDto getDashboardStats(Long currentUserId, UserRole currentUserRole) {
         List<Task> tasks;
@@ -75,9 +77,7 @@ public class DashboardService {
 
     // 관리자 요약: ADMIN=전체 사용자/프로젝트/Task 통계, TEAM_LEADER=담당 프로젝트 기준
     public AdminDashboardResponseDto getAdminSummary(Long currentUserId, UserRole currentUserRole) {
-        if (currentUserRole == null || currentUserRole.isGeneralUser()) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
+        accessPolicy.requireAdminOrLeader(currentUserRole);
 
         long totalUsers = 0L;
         long activeProjectCount;
@@ -116,9 +116,7 @@ public class DashboardService {
 
     // 대시보드 프로젝트 카드: 진행 중 우선 → 마감일순 정렬, 상위 5개 + 진척률 포함
     public List<DashboardProjectDto> getDashboardProjects(Long currentUserId, UserRole currentUserRole) {
-        if (currentUserRole == null || currentUserRole.isGeneralUser()) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
+        accessPolicy.requireAdminOrLeader(currentUserRole);
 
         List<Project> projects = currentUserRole.isTopManager()
                 ? projectRepository.findAll()
