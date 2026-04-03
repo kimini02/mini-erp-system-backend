@@ -107,6 +107,7 @@ public class User extends BaseEntity {
 | **userName** | `String` | `user_name` | NOT NULL, LENGTH(50) | 이름 | 필수 입력 |
 | **userEmail** | `String` | `user_email` | UNIQUE, NOT NULL, LENGTH(100) | 이메일 | 중복 불가 |
 | **userPw** | `String` | `user_pw` | NOT NULL, LENGTH(255) | 암호화 비밀번호 | BCrypt 저장 |
+| **departmentCode** | `String` | `department_code` | NOT NULL, LENGTH(2) | 부서 코드 | 01/02/03 저장 |
 | **positionName** | `String` | `position_name` | NOT NULL, LENGTH(30) | 직책 | 사원/대리/과장/팀장/관리소장 |
 | **assignRole** | `String` | `assign_role` | NULL 허용 | 보조 역할 | 특근 승인 플래그 등에 사용 |
 | **userRole** | `UserRole` | `user_role` | NOT NULL, ENUM | 시스템 권한 | USER/TEAM_LEADER/ADMIN |
@@ -121,6 +122,11 @@ public class User extends BaseEntity {
 - 과장 17.0
 - 팀장 18.0
 - 관리소장/관리자 19.0
+
+부서 코드 정책:
+- 개발팀 `01`
+- 유지보수팀 `02`
+- 모바일개발팀 `03`
 
 #### 4.1.3 핵심 비즈니스 메서드
 ```java

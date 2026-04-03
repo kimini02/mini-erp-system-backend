@@ -17,6 +17,8 @@ public class UserResponseDto {
     private final Long id;
     private final String name;
     private final String email;
+    private final String departmentCode;
+    private final String departmentName;
     private final String position;
     private final String role;
     private final BigDecimal remainingAnnualLeave;
@@ -28,6 +30,8 @@ public class UserResponseDto {
                 user.getId(),
                 user.getUserName(),
                 user.getUserEmail(),
+                user.getDepartmentCode(),
+                getDepartmentName(user.getDepartmentCode()),
                 user.getPositionName(),
                 user.getUserRole().name(),
                 null,
@@ -41,6 +45,8 @@ public class UserResponseDto {
                 user.getId(),
                 user.getUserName(),
                 user.getUserEmail(),
+                user.getDepartmentCode(),
+                getDepartmentName(user.getDepartmentCode()),
                 user.getPositionName(),
                 user.getUserRole().name(),
                 user.getRemainingAnnualLeave(),
@@ -51,5 +57,16 @@ public class UserResponseDto {
 
     public static UserResponseDto from(User user) {
         return summary(user);
+    }
+
+    private static String getDepartmentName(String departmentCode) {
+        if (departmentCode == null) {
+            return null;
+        }
+        try {
+            return com.minierp.backend.domain.user.entity.DepartmentCode.fromCode(departmentCode).getDisplayName();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

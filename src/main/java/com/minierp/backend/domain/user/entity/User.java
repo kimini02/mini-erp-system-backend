@@ -27,6 +27,9 @@ public class User extends BaseEntity {
     @Column(name = "user_pw", nullable = false, length = 255)
     private String userPw;
 
+    @Column(name = "department_code", nullable = false, length = 2)
+    private String departmentCode;
+
     @Column(name = "position_name", nullable = false, length = 30)
     private String positionName;
 
@@ -52,11 +55,12 @@ public class User extends BaseEntity {
     @Column(name = "login_id", nullable = false, unique = true, length = 50)
     private String loginId;
 
-    private User(String userName, String loginId, String userEmail, String userPw, String positionName, UserRole userRole) {
+    private User(String userName, String loginId, String userEmail, String userPw, String departmentCode, String positionName, UserRole userRole) {
         this.userName = userName;
         this.loginId = loginId;
         this.userEmail = userEmail;
         this.userPw = userPw;
+        this.departmentCode = departmentCode;
         this.positionName = positionName;
         this.assignRole = null;
         this.userRole = userRole;
@@ -68,12 +72,13 @@ public class User extends BaseEntity {
         this.remainingAnnualLeave = initialAnnualLeave;
     }
 
-    public static User create(String userName, String loginId, String userEmail, String encodedPassword, String positionName) {
-        return new User(userName, loginId, userEmail, encodedPassword, positionName, UserRole.USER);
+    public static User create(String userName, String loginId, String userEmail, String encodedPassword, String departmentCode, String positionName) {
+        return new User(userName, loginId, userEmail, encodedPassword, departmentCode, positionName, UserRole.USER);
     }
 
-    public void updateProfile(String userName, String positionName) {
+    public void updateProfile(String userName, String departmentCode, String positionName) {
         this.userName = userName;
+        this.departmentCode = departmentCode;
         this.positionName = positionName;
     }
 

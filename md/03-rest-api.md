@@ -145,6 +145,8 @@ Response (200 OK):
       "id": 3,
       "name": "일반사용자",
       "email": "user01@test.com",
+      "departmentCode": "03",
+      "departmentName": "모바일개발팀",
       "position": "사원",
       "role": "USER"
     }
@@ -183,6 +185,18 @@ Response (401 Unauthorized):
 ```yaml
 POST /api/v1/auth/signup
 Public API
+```
+
+Request Body 예시:
+```json
+{
+  "id": "user01",
+  "name": "일반사용자",
+  "email": "user01@test.com",
+  "password": "Password123!",
+  "departmentCode": "01",
+  "position": "사원"
+}
 ```
 
 #### 4.1.2 로그인
@@ -229,10 +243,21 @@ GET /api/v1/users/{userId}
 Authorization: Bearer {JWT_TOKEN}
 ```
 
+- Response DTO에는 `departmentCode`, `departmentName`이 포함됩니다.
+
 #### 4.2.3 사용자 정보 수정
 ```yaml
 PUT /api/v1/users/{userId}
 Authorization: Bearer {JWT_TOKEN}
+```
+
+Request Body 예시:
+```json
+{
+  "name": "일반사용자",
+  "departmentCode": "01",
+  "position": "사원"
+}
 ```
 
 #### 4.2.4 사용자 권한 변경

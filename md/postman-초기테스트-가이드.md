@@ -38,6 +38,7 @@ Environment 변수:
   "name": "관리소장",
   "email": "manager01@test.com",
   "password": "Password123!",
+  "departmentCode": "01",
   "position": "관리소장"
 }
 ```
@@ -51,6 +52,7 @@ Environment 변수:
   "name": "팀장",
   "email": "leader01@test.com",
   "password": "Password123!",
+  "departmentCode": "02",
   "position": "팀장"
 }
 ```
@@ -64,6 +66,7 @@ Environment 변수:
   "name": "일반사용자",
   "email": "user01@test.com",
   "password": "Password123!",
+  "departmentCode": "03",
   "position": "사원"
 }
 ```
@@ -713,4 +716,3 @@ Headers:
 6. 로그인 직후 권한이 반영 안 되면 서버 재시작 후 재로그인
 
 ---
-

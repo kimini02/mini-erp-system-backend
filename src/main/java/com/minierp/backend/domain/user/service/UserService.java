@@ -34,9 +34,12 @@ public class UserService {
 
         Specification<User> spec;
         if (requester.getUserRole().isTopManager()) {
-            spec = Specification.where(isActive()).and(roleEquals(role)).and(nameOrEmailContains(search));
+            spec = isActive();
+            spec = spec.and(roleEquals(role));
+            spec = spec.and(nameOrEmailContains(search));
         } else {
-            spec = Specification.where(isActive()).and(userIdEquals(requesterUserId));
+            spec = isActive();
+            spec = spec.and(userIdEquals(requesterUserId));
         }
 
         Page<UserResponseDto> users = userRepository.findAll(spec, pageable).map(UserResponseDto::detail);
@@ -57,7 +60,7 @@ public class UserService {
         User target = getUserOrThrow(userId);
         validateSelfOrAdmin(target, requester);
 
-        target.updateProfile(requestDto.getName(), requestDto.getPosition());
+        target.updateProfile(requestDto.getName(), requestDto.getDepartmentCode(), requestDto.getPosition());
         return UserResponseDto.detail(target);
     }
 
@@ -89,13 +92,6 @@ public class UserService {
         }
         UserRole userRole = parseUserRole(role);
         return (root, query, cb) -> cb.equal(root.get("userRole"), userRole);
-    }
-
-    private Specification<User> loginIdEquals(String loginId) {
-        if (loginId == null || loginId.isBlank()) {
-            return null;
-        }
-        return (root, query, cb) -> cb.equal(root.get("loginId"), loginId);
     }
 
     private Specification<User> userIdEquals(Long userId) {

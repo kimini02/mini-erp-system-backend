@@ -70,6 +70,7 @@ class CoreApiIntegrationTest {
                 "manager01",
                 "manager01@test.com",
                 passwordEncoder.encode("Password123!"),
+                "01",
                 "관리소장"
         );
         adminUser.changeRole(UserRole.ADMIN);
@@ -79,6 +80,7 @@ class CoreApiIntegrationTest {
                 "leader01",
                 "leader01@test.com",
                 passwordEncoder.encode("Password123!"),
+                "02",
                 "팀장"
         );
         leaderUser.changeRole(UserRole.TEAM_LEADER);
@@ -88,6 +90,7 @@ class CoreApiIntegrationTest {
                 "user01",
                 "user01@test.com",
                 passwordEncoder.encode("Password123!"),
+                "03",
                 "사원"
         );
 
@@ -352,4 +355,3 @@ class CoreApiIntegrationTest {
         return "Bearer " + accessToken;
     }
 }
-

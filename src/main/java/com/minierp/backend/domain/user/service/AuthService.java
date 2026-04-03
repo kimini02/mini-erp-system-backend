@@ -52,6 +52,7 @@ public class AuthService {
                 requestDto.getId(),
                 requestDto.getEmail(),
                 encodedPassword,
+                requestDto.getDepartmentCode(),
                 requestDto.getPosition()
         );
 
