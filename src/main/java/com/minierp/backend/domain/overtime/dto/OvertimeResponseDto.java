@@ -3,7 +3,6 @@ package com.minierp.backend.domain.overtime.dto;
 import com.minierp.backend.domain.overtime.entity.OvertimeRequest;
 import com.minierp.backend.domain.overtime.entity.OvertimeStatus;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,13 +11,14 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class OvertimeResponseDto {
     private Long id;
     private Long requesterId;
     private String requesterName;
+    private String departmentCode;
+    private String userRole;
     private Long approverId;
     private String approverName;
     private LocalDate overtimeDate;
@@ -29,18 +29,20 @@ public class OvertimeResponseDto {
     private LocalDateTime createdAt;
 
     public static OvertimeResponseDto from(OvertimeRequest request) {
-        return OvertimeResponseDto.builder()
-                .id(request.getId())
-                .requesterId(request.getRequester().getId())
-                .requesterName(request.getRequester().getUserName())
-                .approverId(request.getApprover() != null ? request.getApprover().getId() : null)
-                .approverName(request.getApprover() != null ? request.getApprover().getUserName() : null)
-                .overtimeDate(request.getOvertimeDate())
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
-                .reason(request.getReason())
-                .status(request.getStatus())
-                .createdAt(request.getCreatedAt())
-                .build();
+        return new OvertimeResponseDto(
+                request.getId(),
+                request.getRequester().getId(),
+                request.getRequester().getUserName(),
+                request.getRequester().getDepartmentCode(),
+                request.getRequester().getUserRole().name(),
+                request.getApprover() != null ? request.getApprover().getId() : null,
+                request.getApprover() != null ? request.getApprover().getUserName() : null,
+                request.getOvertimeDate(),
+                request.getStartTime(),
+                request.getEndTime(),
+                request.getReason(),
+                request.getStatus(),
+                request.getCreatedAt()
+        );
     }
 }

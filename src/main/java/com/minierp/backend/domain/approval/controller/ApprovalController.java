@@ -73,7 +73,7 @@ public class ApprovalController {
     public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getMyLeaveRequests(
             Authentication authentication) {
 
-        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequests(currentUserResolver.resolveUserId(authentication));
+        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequestList(currentUserResolver.resolveUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "내 연차 신청 내역 조회가 완료되었습니다."));
     }
 
@@ -83,7 +83,7 @@ public class ApprovalController {
      */
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getAllLeaveRequests(Authentication authentication) {
-        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequests(currentUserResolver.resolveUserId(authentication));
+        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequestList(currentUserResolver.resolveUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "연차 신청 전체 조회가 완료되었습니다."));
     }
 
