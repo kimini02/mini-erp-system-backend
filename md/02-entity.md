@@ -195,7 +195,7 @@ public boolean isOverdue()
 | **startDate** | `LocalDate` | `start_date` | NOT NULL | 시작일 | 종료일 이전 |
 | **endDate** | `LocalDate` | `end_date` | NOT NULL | 종료일 | 시작일 이후 |
 | **usedDays** | `BigDecimal` | `used_days` | NOT NULL | 사용 일수 | 서버 계산 |
-| **appStatus** | `LeaveStatus` | `app_status` | NOT NULL, ENUM | 상태 | PENDING/APPROVED/REJECTED |
+| **appStatus** | `LeaveStatus` | `app_status` | NOT NULL, ENUM | 상태 | PENDING/APPROVED/REJECTED/CANCELLED |
 | **requestReason** | `String` | `request_reason` | LENGTH(500) | 신청 사유 | 선택 입력 |
 | **rejectReason** | `String` | `reject_reason` | LENGTH(500) | 반려 사유 | 반려 시 필수 |
 
@@ -203,6 +203,7 @@ public boolean isOverdue()
 ```java
 public void approve(User approver)
 public void reject(User approver, String reason)
+public void cancel(User requester)
 public void calculateUsedDays(List<LocalDate> holidayList)
 ```
 
@@ -306,7 +307,8 @@ public enum TaskStatus {
 public enum LeaveStatus {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED,
+    CANCELLED
 }
 ```
 
@@ -315,7 +317,8 @@ public enum LeaveStatus {
 public enum OvertimeStatus {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED,
+    CANCELLED
 }
 ```
 

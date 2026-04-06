@@ -72,28 +72,39 @@ public class ApprovalService {
         User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (containsWeekendOrHoliday(dto.getStartDate(), dto.getEndDate())) {
+        LocalDate startDate = dto.getStartDate();
+        LocalDate endDate = dto.getEndDate();
+        if (dto.getAppType() != null && dto.getAppType().isHalfDay()) {
+            endDate = startDate;
+        }
+
+        // 과거 날짜 신청 방지: 시작일이 오늘 이전이면 신청 불가
+        if (startDate.isBefore(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "오늘 이전 날짜로는 연차를 신청할 수 없습니다.");
+        }
+
+        if (containsWeekendOrHoliday(startDate, endDate)) {
             throw new BusinessException(ErrorCode.LEAVE_DATE_NOT_WORKING_DAY);
         }
 
-        if (hasOverlappingActiveLeaveRequest(requesterUserId, dto.getStartDate(), dto.getEndDate())) {
+        if (hasOverlappingActiveLeaveRequest(requesterUserId, startDate, endDate)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "이미 신청한 연차가 존재합니다.");
         }
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .requester(requester)
                 .appType(dto.getAppType())
-                .startDate(dto.getStartDate())
-                .endDate(dto.getEndDate())
+                .startDate(startDate)
+                .endDate(endDate)
                 .requestReason(dto.getRequestReason())
                 .build();
 
-        // [버그 수정] 공휴일 정보를 반영하여 usedDays 재계산
-        leaveRequest.calculateUsedDays(getObservedHolidays(dto.getStartDate().getYear()).stream().toList());
+        leaveRequest.calculateUsedDays(getObservedHolidays(startDate.getYear()).stream().toList());
 
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
         return LeaveRequestResponseDto.from(savedRequest);
     }
+
 
     /**
      * 연차 승인 (Absolute Rule: @Transactional 내에서 상태 변경 및 User 연차 차감)
@@ -140,13 +151,33 @@ public class ApprovalService {
     }
 
     /**
+     * 연차 취소
+     */
+    @Transactional
+    public LeaveRequestResponseDto cancelLeaveRequest(Long requestId, Long requesterUserId) {
+        LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "결재 요청을 찾을 수 없습니다."));
+
+        User requester = userRepository.findById(requesterUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
+
+        if (!leaveRequest.getRequester().getId().equals(requester.getId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "본인 신청 건만 취소할 수 있습니다.");
+        }
+
+        leaveRequest.cancel(requester);
+        return LeaveRequestResponseDto.from(leaveRequest);
+    }
+
+    /**
      * 특정 사용자의 연차 신청 내역 조회
      */
-    public List<LeaveRequestResponseDto> getMyLeaveRequestList(Long requesterUserId) {
+    public List<LeaveRequestResponseDto> getMyLeaveRequestList(Long requesterUserId, boolean includeCancelled) {
         User user = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         return leaveRequestRepository.findByRequester_Id(user.getId()).stream()
+                .filter(req -> includeCancelled || req.getAppStatus() != LeaveStatus.CANCELLED)
                 .map(LeaveRequestResponseDto::from)
                 .collect(Collectors.toList());
     }
@@ -154,17 +185,16 @@ public class ApprovalService {
     /**
      * 모든 연차 신청 내역 조회 (관리자용)
      */
-    public List<LeaveRequestResponseDto> getAllLeaveRequestList(Long requesterUserId) {
+    public List<LeaveRequestResponseDto> getAllLeaveRequestList(Long requesterUserId, boolean includeCancelled) {
         User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (!accessPolicy.canViewAllRequests(requester.getUserRole())) {
-            return leaveRequestRepository.findByRequester_Id(requester.getId()).stream()
-                    .map(LeaveRequestResponseDto::from)
-                    .collect(Collectors.toList());
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "전체 연차 내역은 팀장/관리자만 조회할 수 있습니다.");
         }
 
         return leaveRequestRepository.findAll().stream()
+                .filter(req -> includeCancelled || req.getAppStatus() != LeaveStatus.CANCELLED)
                 .map(LeaveRequestResponseDto::from)
                 .collect(Collectors.toList());
     }

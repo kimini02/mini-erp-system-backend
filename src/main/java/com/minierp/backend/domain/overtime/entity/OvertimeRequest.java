@@ -48,7 +48,6 @@ public class OvertimeRequest extends BaseEntity {
         this.startTime = startTime;
         this.endTime = endTime;
         this.reason = reason;
-        this.status = OvertimeStatus.PENDING;
     }
 
     public void approve(User approver) {
@@ -65,5 +64,15 @@ public class OvertimeRequest extends BaseEntity {
         }
         this.approver = approver;
         this.status = OvertimeStatus.REJECTED;
+    }
+
+    public void cancel(User requester) {
+        if (this.status != OvertimeStatus.PENDING) {
+            throw new IllegalStateException("이미 처리된 요청입니다.");
+        }
+        if (requester == null || !this.requester.getId().equals(requester.getId())) {
+            throw new IllegalArgumentException("본인 신청 건만 취소할 수 있습니다.");
+        }
+        this.status = OvertimeStatus.CANCELLED;
     }
 }

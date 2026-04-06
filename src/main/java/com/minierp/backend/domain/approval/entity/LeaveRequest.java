@@ -2,7 +2,16 @@ package com.minierp.backend.domain.approval.entity;
 
 import com.minierp.backend.domain.user.entity.User;
 import com.minierp.backend.global.entity.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -58,8 +67,20 @@ public class LeaveRequest extends BaseEntity {
         this.startDate = startDate;
         this.endDate = endDate;
         this.requestReason = requestReason;
-        this.appStatus = LeaveStatus.PENDING;
-        calculateUsedDays(Collections.emptyList()); // 기본적으로 공휴일 없이 계산
+        calculateUsedDays(Collections.emptyList());
+    }
+
+    /**
+     * 연차 취소 처리
+     */
+    public void cancel(User requester) {
+        if (this.appStatus != LeaveStatus.PENDING) {
+            throw new IllegalStateException("이미 처리된 결재 건입니다. (현재 상태: " + appStatus.getDisplayName() + ")");
+        }
+        if (requester == null || !this.requester.getId().equals(requester.getId())) {
+            throw new IllegalArgumentException("본인 신청 건만 취소할 수 있습니다.");
+        }
+        this.appStatus = LeaveStatus.CANCELLED;
     }
 
     /**
@@ -71,8 +92,6 @@ public class LeaveRequest extends BaseEntity {
         }
         this.approver = approver;
         this.appStatus = LeaveStatus.APPROVED;
-        
-        // 실제 연차 차감 로직은 Service에서 User.deductAnnualLeave(this.usedDays)로 호출됨
     }
 
     /**
@@ -117,6 +136,10 @@ public class LeaveRequest extends BaseEntity {
     private void validatePeriod() {
         if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("종료일은 시작일보다 빠를 수 없습니다.");
+        }
+
+        if (appType != null && appType.isHalfDay() && (startDate == null || endDate == null || !startDate.equals(endDate))) {
+            throw new IllegalArgumentException("반차는 시작일과 종료일이 같은 하루만 신청할 수 있습니다.");
         }
     }
 }

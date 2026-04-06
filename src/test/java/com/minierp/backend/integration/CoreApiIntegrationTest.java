@@ -279,6 +279,56 @@ class CoreApiIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("DUPLICATE_RESOURCE"));
     }
 
+    @Test
+    @DisplayName("반차 신청 통합 테스트: 종료일이 자동으로 시작일과 동일하게 보정된다")
+    void createHalfDayLeave_shouldNormalizeEndDate() throws Exception {
+        String userToken = loginAndGetToken("user01", "Password123!");
+
+        mockMvc.perform(post("/api/v1/leave")
+                        .header("Authorization", bearer(userToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "appType": "HALF_MORNING",
+                                  "startDate": "2026-04-10",
+                                  "endDate": "2026-04-12",
+                                  "requestReason": "반차 테스트"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.startDate").value("2026-04-10"))
+                .andExpect(jsonPath("$.data.endDate").value("2026-04-10"));
+    }
+
+    @Test
+    @DisplayName("연차 취소 통합 테스트: 본인 PENDING 건은 취소 가능")
+    void cancelLeave_shouldSucceedForOwnPendingRequest() throws Exception {
+        String userToken = loginAndGetToken("user01", "Password123!");
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/leave")
+                        .header("Authorization", bearer(userToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "appType": "ANNUAL",
+                                  "startDate": "2026-04-14",
+                                  "endDate": "2026-04-14",
+                                  "requestReason": "취소 테스트"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Long leaveId = readLong(createResult, "data", "appId");
+
+        mockMvc.perform(patch("/api/v1/leave/{requestId}/cancel", leaveId)
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.appStatus").value("CANCELLED"));
+    }
+
     private Long createLeave(String userToken, String startDate, String endDate) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/leave")
                         .header("Authorization", bearer(userToken))

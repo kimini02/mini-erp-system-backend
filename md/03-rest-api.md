@@ -273,524 +273,85 @@ Required Role: ADMIN
 ```yaml
 POST /api/v1/projects
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN
 ```
-
-Request Body:
-```json
-{
-  "title": "ERP 구축",
-  "content": "관리 시스템 구축 프로젝트",
-  "startDate": "2026-04-01",
-  "endDate": "2026-06-30",
-  "priority": "HIGH",
-  "leaderId": 2
-}
-```
-
-Validation Rules:
-- title: 필수, 최대 100자
-- startDate, endDate: 필수, 종료일 ≥ 시작일
-- priority: HIGH / MEDIUM / LOW (미입력 시 MEDIUM)
-- leaderId: 필수, TEAM_LEADER 또는 ADMIN 역할만 지정 가능
-
-Response (201 Created):
-```json
-{
-  "success": true,
-  "data": {
-    "projectId": 1,
-    "title": "ERP 구축",
-    "content": "관리 시스템 구축 프로젝트",
-    "status": "READY",
-    "priority": "HIGH",
-    "startDate": "2026-04-01",
-    "endDate": "2026-06-30",
-    "memberCount": 0,
-    "taskCount": 0,
-    "progressRate": 0,
-    "leaderId": 2,
-    "leaderName": "홍길동"
-  },
-  "message": "프로젝트가 생성되었습니다."
-}
-```
-
-Business Rules:
-- 생성 시 상태는 READY로 고정
-- 프로젝트 상태는 Task 진행률에 따라 자동 변경 (READY → PROGRESS → DONE)
 
 #### 4.3.2 프로젝트 목록 조회
 ```yaml
 GET /api/v1/projects
 Authorization: Bearer {JWT_TOKEN}
-Required Role: 전체 (역할별 조회 범위 다름)
-```
-
-역할별 조회 범위:
-| 역할 | 조회 범위 |
-|------|----------|
-| ADMIN | 모든 프로젝트 |
-| TEAM_LEADER | 본인이 팀장인 프로젝트 (없으면 NO_ASSIGNED_PROJECT 에러) |
-| USER | 본인이 배정된 프로젝트 |
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "projectId": 1,
-      "title": "ERP 구축",
-      "content": "관리 시스템 구축 프로젝트",
-      "status": "PROGRESS",
-      "priority": "HIGH",
-      "startDate": "2026-04-01",
-      "endDate": "2026-06-30",
-      "memberCount": 5,
-      "taskCount": 10,
-      "progressRate": 40,
-      "leaderId": 2,
-      "leaderName": "홍길동"
-    }
-  ],
-  "message": "프로젝트 목록 조회가 완료되었습니다."
-}
 ```
 
 #### 4.3.3 프로젝트 수정
 ```yaml
 PUT /api/v1/projects/{projectId}
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN
 ```
-
-Request Body:
-```json
-{
-  "title": "ERP 구축 수정",
-  "content": "프로젝트 설명 수정",
-  "startDate": "2026-04-01",
-  "endDate": "2026-07-15",
-  "priority": "MEDIUM"
-}
-```
-
-Response (200 OK): ProjectResponseDto (생성과 동일 구조)
-
-Business Rules:
-- status, leader는 이 API로 변경 불가
-- 종료일 < 시작일이면 INVALID_PROJECT_PERIOD 에러
 
 #### 4.3.4 프로젝트 팀장 변경
 ```yaml
 PATCH /api/v1/projects/{projectId}/leader
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN
 ```
 
-Request Body:
-```json
-{
-  "leaderId": 3
-}
-```
-
-Response (200 OK): ProjectResponseDto
-
-Business Rules:
-- TEAM_LEADER 또는 ADMIN 역할만 팀장 지정 가능 (INVALID_LEADER_ROLE 에러)
-
-#### 4.3.5 프로젝트 팀원 배정
+#### 4.3.5 프로젝트 멤버 배정/해제
 ```yaml
 POST /api/v1/projects/{projectId}/members
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
-```
-
-Request Body:
-```json
-{
-  "userId": 5
-}
-```
-
-Response (201 Created):
-```json
-{
-  "success": true,
-  "data": {
-    "id": 10,
-    "projectId": 1,
-    "userId": 5,
-    "userName": "김철수"
-  },
-  "message": "프로젝트 팀원이 배정되었습니다."
-}
-```
-
-Business Rules:
-- TEAM_LEADER는 본인 프로젝트만, USER 역할만 배정 가능
-- 중복 배정 시 DUPLICATE_PROJECT_MEMBER (409)
-- DB UniqueConstraint(project_id, user_id)로 동시성 방어
-
-#### 4.3.6 프로젝트 팀원 해제
-```yaml
 DELETE /api/v1/projects/{projectId}/members/{userId}
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
 ```
 
-Response (200 OK)
-
-Business Rules:
-- 팀원 해제 시 해당 프로젝트 내 Task 담당도 연쇄 삭제 (데이터 정합성)
-- 대상 없으면 PROJECT_MEMBER_NOT_FOUND (404)
-
-#### 4.3.7 프로젝트 팀원 목록 조회
+#### 4.3.6 프로젝트 멤버 조회/후보 조회
 ```yaml
 GET /api/v1/projects/{projectId}/members
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    { "id": 10, "projectId": 1, "userId": 5, "userName": "김철수" }
-  ]
-}
-```
-
-#### 4.3.8 배정 가능 팀원 조회
-```yaml
 GET /api/v1/projects/{projectId}/members/available
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    { "userId": 5, "userName": "김철수" }
-  ]
-}
-```
-
-Business Rules:
-- 이미 배정된 팀원은 제외
-
-#### 4.3.9 Task 배정 가능 팀원 조회
-```yaml
 GET /api/v1/projects/{projectId}/members/assignable
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
 ```
 
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    { "userId": 5, "userName": "김철수", "positionName": "사원" }
-  ]
-}
-```
-
-Business Rules:
-- 해당 프로젝트에 배정된 USER 역할 멤버만 반환
-
-#### 4.3.10 사용자 프로젝트 권한 조회
+#### 4.3.7 사용자 프로젝트 권한 조회/저장
 ```yaml
 GET /api/v1/projects/permissions/{userId}
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + TEAM_LEADER
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    { "projectId": 1, "title": "ERP 구축", "status": "PROGRESS", "assigned": true },
-    { "projectId": 2, "title": "인사 시스템", "status": "READY", "assigned": false }
-  ]
-}
-```
-
-Business Rules:
-- ADMIN: 전체 프로젝트 + 해당 사용자 배정 여부
-- TEAM_LEADER: 본인 담당 프로젝트만
-
-#### 4.3.11 사용자 프로젝트 권한 저장
-```yaml
 PUT /api/v1/projects/permissions/{userId}
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + TEAM_LEADER
 ```
 
-Request Body:
-```json
-{
-  "assignedProjectIds": [1, 2, 3]
-}
-```
-
-Response (200 OK)
-
-Business Rules:
-- 전체 배정을 이 목록으로 덮어씀 (Set diff: 추가/제거 계산)
-- 제거되는 프로젝트의 Task 담당도 연쇄 삭제
-- TEAM_LEADER는 USER 역할만, 본인 프로젝트만 관리 가능
-
-#### 4.3.12 팀장 목록 조회
+#### 4.3.8 팀장 목록/프로젝트 진행률
 ```yaml
 GET /api/v1/projects/leaders
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    { "userId": 3, "userName": "이팀장", "assignedProjectCount": 2 }
-  ]
-}
-```
-
-#### 4.3.13 프로젝트 진행률 조회
-```yaml
 GET /api/v1/projects/{projectId}/progress
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER + 배정된 USER
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": {
-    "projectId": 1,
-    "totalTasks": 10,
-    "doneTasks": 4,
-    "progressRate": 40
-  }
-}
 ```
 
 ### 4.4 업무(Task) 관리 API
 
-#### 4.4.1 업무 생성
+#### 4.4.1 업무 생성/조회/상세/수정
 ```yaml
 POST /api/v1/tasks
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
-```
-
-Request Body:
-```json
-{
-  "projectId": 1,
-  "taskTitle": "로그인 화면 구현",
-  "taskContent": "디자인 반영 및 API 연동",
-  "endDate": "2026-04-15",
-  "taskState": "TODO",
-  "priority": "HIGH",
-  "assigneeIds": [5, 6]
-}
-```
-
-Validation Rules:
-- taskTitle, taskContent: 필수
-- endDate, priority: 필수
-- taskState: TODO / DOING / DONE (JSON 필드명은 `taskState`)
-- assigneeIds: 필수, 1명 이상, 프로젝트 멤버만, 중복 불가
-
-Response (201 Created):
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "projectId": 1,
-    "taskTitle": "로그인 화면 구현",
-    "taskContent": "디자인 반영 및 API 연동",
-    "taskState": "TODO",
-    "priority": "HIGH",
-    "endDate": "2026-04-15",
-    "assignees": [
-      { "id": 5, "userName": "김철수" },
-      { "id": 6, "userName": "박영희" }
-    ]
-  },
-  "message": "Task가 생성되었습니다."
-}
-```
-
-Business Rules:
-- Task + 담당자를 하나의 트랜잭션에서 동시 생성 (원자성)
-- 담당자는 해당 프로젝트 멤버만 가능
-- TEAM_LEADER는 본인 프로젝트의 Task만 생성 가능
-
-#### 4.4.2 업무 목록 조회
-```yaml
 GET /api/v1/tasks
-Authorization: Bearer {JWT_TOKEN}
-Required Role: 전체 (역할별 조회 범위 다름)
-```
-
-역할별 조회 범위:
-| 역할 | 조회 범위 |
-|------|----------|
-| ADMIN | 모든 Task |
-| TEAM_LEADER | 본인 담당 프로젝트의 Task |
-| USER | 본인에게 배정된 Task만 |
-
-Response (200 OK): TaskResponseDto[]
-
-#### 4.4.3 업무 상세 조회
-```yaml
 GET /api/v1/tasks/{taskId}
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER + 배정된 USER
-```
-
-Response (200 OK): TaskResponseDto
-
-Business Rules:
-- USER는 본인 배정 Task만 조회 가능 (TASK_ACCESS_DENIED 에러)
-
-#### 4.4.4 업무 수정
-```yaml
 PUT /api/v1/tasks/{taskId}
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
 ```
 
-Request Body:
-```json
-{
-  "taskTitle": "로그인 화면 구현 수정",
-  "taskContent": "API 명세 반영 완료",
-  "endDate": "2026-04-18",
-  "priority": "MEDIUM"
-}
-```
-
-Response (200 OK): TaskResponseDto
-
-Business Rules:
-- taskState, 담당자, projectId는 이 API로 변경 불가
-
-#### 4.4.5 업무 상태 변경
+#### 4.4.2 업무 상태 변경
 ```yaml
 PATCH /api/v1/tasks/{taskId}/status
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER + 배정된 USER
 ```
 
-Request Body:
-```json
-{
-  "taskState": "DOING"
-}
-```
-
-Response (200 OK): TaskResponseDto
-
-Business Rules:
-- 상태값: TODO / DOING / DONE
-- 상태 변경 시 프로젝트 상태 자동 갱신 (모든 Task DONE → 프로젝트 DONE)
-- JSON 필드명은 `taskState` (`taskStatus`로 보내면 무시됨)
-
-#### 4.4.6 업무 담당자 배정
+#### 4.4.3 업무 담당자 배정 관리
 ```yaml
 POST /api/v1/tasks/{taskId}/assignments
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
-```
-
-Request Body:
-```json
-{
-  "userId": 5
-}
-```
-
-Response (201 Created):
-```json
-{
-  "success": true,
-  "data": { "id": 15, "taskId": 1, "userId": 5 }
-}
-```
-
-Business Rules:
-- 프로젝트 멤버만 배정 가능
-- 중복 배정 시 DUPLICATE_ASSIGNMENT (409)
-
-#### 4.4.7 업무 담당자 목록 조회
-```yaml
 GET /api/v1/tasks/{taskId}/assignments
-Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER + 배정된 USER
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    { "id": 15, "taskId": 1, "userId": 5 }
-  ]
-}
-```
-
-#### 4.4.8 업무 담당자 해제
-```yaml
 DELETE /api/v1/tasks/{taskId}/assignments/{userId}
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + 담당 TEAM_LEADER
 ```
 
-Response (204 No Content)
-
-Business Rules:
-- 대상 없으면 ASSIGNMENT_NOT_FOUND (404)
-
-#### 4.4.9 최근 업무 배정 이력
+#### 4.4.4 최근 업무 배정 이력
 ```yaml
 GET /api/v1/tasks/recent-assignments
 Authorization: Bearer {JWT_TOKEN}
-Required Role: ADMIN + TEAM_LEADER (USER 접근 불가)
 ```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "taskId": 1,
-      "taskTitle": "로그인 화면 구현",
-      "projectTitle": "ERP 구축",
-      "assigneeName": "김철수",
-      "endDate": "2026-04-15",
-      "priority": "HIGH",
-      "createdAt": "2026-04-03T09:00:00"
-    }
-  ]
-}
-```
-
-Business Rules:
-- 최근 10건, ADMIN: 전체, TEAM_LEADER: 본인 프로젝트만
 
 ### 4.5 근태 관리 API
 
@@ -844,21 +405,28 @@ Authorization: Bearer {JWT_TOKEN}
 }
 ```
 
-#### 4.7.2 연차 승인/반려
+#### 4.7.2 연차 신청 취소
+```yaml
+DELETE /api/v1/leave/{requestId}
+Authorization: Bearer {JWT_TOKEN}
+```
+- 본인이 신청한 `PENDING` 상태의 건만 취소 가능
+
+#### 4.7.3 연차 승인/반려
 ```yaml
 PATCH /api/v1/leave/{requestId}/approve
 PATCH /api/v1/leave/{requestId}/reject
 Authorization: Bearer {JWT_TOKEN}
 ```
 
-#### 4.7.3 연차 내역 조회
+#### 4.7.4 연차 내역 조회
 ```yaml
 GET /api/v1/leave/my
 GET /api/v1/leave/all
 Authorization: Bearer {JWT_TOKEN}
 ```
 
-#### 4.7.4 연차 잔여/정책 조회
+#### 4.7.5 연차 잔여/정책 조회
 ```yaml
 GET /api/v1/leave/balance
 GET /api/v1/leave/policy
@@ -880,7 +448,14 @@ POST /api/v1/overtime
 Authorization: Bearer {JWT_TOKEN}
 ```
 
-#### 4.8.2 특근 승인/반려
+#### 4.8.2 특근 신청 취소
+```yaml
+DELETE /api/v1/overtime/{id}
+Authorization: Bearer {JWT_TOKEN}
+```
+- 본인이 신청한 `PENDING` 상태의 건만 취소 가능
+
+#### 4.8.3 특근 승인/반려
 ```yaml
 PATCH /api/v1/overtime/{id}/approve
 PATCH /api/v1/overtime/{id}/reject
@@ -932,7 +507,7 @@ Authorization: Bearer {JWT_TOKEN}
 (@Deprecated)
 ```
 
-### 4.9 대시보드 API (담당: 김민희)
+### 4.9 대시보드 API
 
 #### 4.9.1 대시보드 진행률
 ```yaml
@@ -940,118 +515,17 @@ GET /api/v1/dashboard/progress
 Authorization: Bearer {JWT_TOKEN}
 ```
 
-**Required Role**: ALL (ADMIN, TEAM_LEADER, USER)
-
-**역할별 집계 범위**:
-| 역할 | 집계 대상 |
-|------|----------|
-| ADMIN | 전체 Task |
-| TEAM_LEADER | 본인이 팀장인 프로젝트의 Task |
-| USER | 본인에게 배정된 Task |
-
-**Response** (200 OK):
-```json
-{
-  "success": true,
-  "data": {
-    "todoCount": 5,
-    "doingCount": 3,
-    "doneCount": 7,
-    "progressRate": 46.67
-  },
-  "message": "대시보드 진행률 조회 성공",
-  "timestamp": "2026-04-02T10:00:00"
-}
-```
-
-**Business Rules**:
-- 같은 API, 같은 화면이지만 **역할에 따라 집계 대상이 다름**
-- `progressRate` = (doneCount × 100.0) / totalCount
-- Task가 0개이면 `progressRate`는 0.0 (0 나누기 방어)
-- 집계에 `EnumMap<TaskStatus, Long>` 사용 (Enum 키 최적 자료구조)
-
----
-
 #### 4.9.2 관리자 요약
 ```yaml
 GET /api/v1/dashboard/admin-summary
 Authorization: Bearer {JWT_TOKEN}
 ```
 
-**Required Role**: ADMIN, TEAM_LEADER (USER → 403 ACCESS_DENIED)
-
-**역할별 응답 차이**:
-| 필드 | ADMIN | TEAM_LEADER |
-|------|-------|-------------|
-| totalUsers | 전체 사용자 수 | 0 (의미 없음) |
-| activeProjectCount | 전체 진행 중 프로젝트 | 본인 프로젝트 중 진행 중 |
-| pendingApprovalCount | 전체 대기 결재 | 본인 프로젝트 기준 |
-| taskCompletionRate | 전체 완료율 | 본인 프로젝트 완료율 |
-| totalTaskCount | 전체 Task 수 | 본인 프로젝트 Task 수 |
-
-**Response** (200 OK):
-```json
-{
-  "success": true,
-  "data": {
-    "totalUsers": 25,
-    "activeProjectCount": 8,
-    "pendingApprovalCount": 3,
-    "taskCompletionRate": 62.5,
-    "totalTaskCount": 40
-  },
-  "message": "관리자 요약 조회 성공",
-  "timestamp": "2026-04-02T10:00:00"
-}
-```
-
-**Business Rules**:
-- TEAM_LEADER의 `totalUsers`가 0인 이유: 전체 사용자 관리는 ADMIN의 영역
-- 하나의 DTO로 역할별 다른 값을 채움 → 프론트는 하나의 컴포넌트로 처리, 0인 카드는 숨김
-- `taskCompletionRate` = (doneTaskCount × 100.0) / totalTaskCount
-- Task가 0개이면 `taskCompletionRate`는 0.0
-
----
-
 #### 4.9.3 대시보드 프로젝트 현황
 ```yaml
 GET /api/v1/dashboard/projects
 Authorization: Bearer {JWT_TOKEN}
 ```
-
-**Required Role**: ADMIN, TEAM_LEADER (USER → 403 ACCESS_DENIED)
-
-**Response** (200 OK):
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "projectId": 1,
-      "projectName": "현장 안전관리 시스템",
-      "status": "PROGRESS",
-      "endDate": "2026-05-15",
-      "progressRate": 60
-    },
-    {
-      "projectId": 3,
-      "projectName": "자재 발주 자동화",
-      "status": "PROGRESS",
-      "endDate": "2026-06-01",
-      "progressRate": 33
-    }
-  ],
-  "message": "대시보드 프로젝트 현황 조회 성공",
-  "timestamp": "2026-04-02T10:00:00"
-}
-```
-
-**Business Rules**:
-- **정렬**: ① 진행 중(PROGRESS) 우선 → ② 마감일(endDate) 빠른 순
-- **최대 5개**만 반환 (대시보드는 요약, 전체 목록은 프로젝트 페이지에서)
-- `progressRate` = (doneCount × 100) / totalCount (정수, Task 없으면 0)
-- `Comparator` 체이닝: `.comparing(PROGRESS ? 0 : 1).thenComparing(endDate).limit(5)`
-- ADMIN은 전체 프로젝트, TEAM_LEADER는 본인 프로젝트 기준
 
 ---
 
