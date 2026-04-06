@@ -131,9 +131,10 @@ public class User extends BaseEntity {
 #### 4.1.3 핵심 비즈니스 메서드
 ```java
 public void changeRole(UserRole userRole)
-public void updateProfile(String userName, String positionName)
+public void updateProfile(String userName, String departmentCode, String positionName)
 public void updatePassword(String newEncodedPassword)
 public void deductAnnualLeave(BigDecimal usedDays)
+public boolean passwordMatches(String encodedPassword)
 ```
 
 ### 4.2 Project Entity
@@ -146,7 +147,7 @@ public void deductAnnualLeave(BigDecimal usedDays)
 | **content** | `String` | `content` | LENGTH(1000) | 설명 | 선택 |
 | **startDate** | `LocalDate` | `start_date` | NOT NULL | 시작일 | 종료일 이전 |
 | **endDate** | `LocalDate` | `end_date` | NOT NULL | 종료일 | 시작일 이후 |
-| **status** | `ProjectStatus` | `status` | NOT NULL, ENUM | 상태 | READY/PROGRESS/DONE/HOLD |
+| **status** | `ProjectStatus` | `status` | NOT NULL, ENUM | 상태 | READY/PROGRESS/DONE |
 | **priority** | `Priority` | `priority` | NOT NULL, ENUM | 우선순위 | HIGH/MEDIUM/LOW |
 | **leader** | `User` | `leader_id` | FK, NULL 허용 | 담당 팀장 | TEAM_LEADER 권장 |
 
@@ -199,13 +200,23 @@ public boolean isOverdue()
 | **requestReason** | `String` | `request_reason` | LENGTH(500) | 신청 사유 | 선택 입력 |
 | **rejectReason** | `String` | `reject_reason` | LENGTH(500) | 반려 사유 | 반려 시 필수 |
 
-#### 4.4.2 핵심 메서드
+#### 4.4.2 생성 방식 및 핵심 메서드
 ```java
+// 생성: @Builder 패턴 사용
+LeaveRequest.builder()
+    .requester(user).appType(leaveType)
+    .startDate(start).endDate(end).requestReason(reason)
+    .build();
+
 public void approve(User approver)
 public void reject(User approver, String reason)
 public void cancel(User requester)
-public void calculateUsedDays(List<LocalDate> holidayList)
+public void calculateUsedDays(List<LocalDate> holidayList)  // 주말·공휴일 제외 실 근무일 계산, 반차는 0.5 고정
 ```
+
+**검증 규칙 (@PrePersist/@PreUpdate)**
+- 종료일은 시작일보다 빠를 수 없음
+- 반차는 시작일 = 종료일 (하루만 신청 가능)
 
 ### 4.5 OvertimeRequest Entity
 
@@ -215,16 +226,23 @@ public void calculateUsedDays(List<LocalDate> holidayList)
 | **id** | `Long` | `id` | PK, NOT NULL, AUTO_INCREMENT | 특근 식별자 | 시스템 자동 생성 |
 | **requester** | `User` | `requester_id` | FK, NOT NULL | 신청자 | 필수 |
 | **approver** | `User` | `approver_id` | FK, NULL 허용 | 처리자 | 승인/반려 시 설정 |
-| **overtimeDate** | `LocalDate` | `overtime_date` | NOT NULL | 특근 일자 | 주말 신청만 허용 |
+| **overtimeDate** | `LocalDate` | `overtime_date` | NOT NULL | 특근 일자 | 주말/공휴일만 신청 가능 |
 | **startTime** | `LocalTime` | `start_time` | NOT NULL | 시작 시간 | 종료시간 이전 |
 | **endTime** | `LocalTime` | `end_time` | NOT NULL | 종료 시간 | 시작시간 이후 |
 | **reason** | `String` | `reason` | LENGTH(500) | 사유 | 선택 |
-| **status** | `OvertimeStatus` | `status` | NOT NULL, ENUM | 상태 | PENDING/APPROVED/REJECTED |
+| **status** | `OvertimeStatus` | `status` | NOT NULL, ENUM | 상태 | PENDING/APPROVED/REJECTED/CANCELLED |
 
-#### 4.5.2 핵심 메서드
+#### 4.5.2 생성 방식 및 핵심 메서드
 ```java
+// 생성: @Builder 패턴 사용
+OvertimeRequest.builder()
+    .requester(user).overtimeDate(date)
+    .startTime(start).endTime(end).reason(reason)
+    .build();
+
 public void approve(User approver)
 public void reject(User approver)
+public void cancel(User requester)
 ```
 
 ### 4.6 Attendance Entity
@@ -241,9 +259,9 @@ public void reject(User approver)
 
 #### 4.6.2 핵심 메서드
 ```java
-public static Attendance checkIn(User user, LocalDate workDate, LocalTime clockInTime)
+public static Attendance checkIn(User user, LocalDate workDate, LocalTime clockInTime)  // 9:00 초과 시 LATE 자동 판정
 public void checkOut(LocalTime clockOutTime)
-public void updateAttendance(LocalTime clockInTime, LocalTime clockOutTime)
+public void updateAttendance(LocalTime clockInTime, LocalTime clockOutTime)  // 지각 여부 재판정
 ```
 
 ### 4.7 ProjectMember Entity
@@ -277,48 +295,85 @@ public void updateAttendance(LocalTime clockInTime, LocalTime clockOutTime)
 ### 5.1 UserRole
 ```java
 public enum UserRole {
-    USER,
-    TEAM_LEADER,
-    ADMIN
+    USER("일반 사용자"),
+    TEAM_LEADER("팀장"),
+    ADMIN("관리 소장")
+    // 헬퍼: isTopManager(), isTeamLeader(), isGeneralUser(), from(String)
 }
 ```
 
 ### 5.2 ProjectStatus
 ```java
 public enum ProjectStatus {
-    READY,
-    PROGRESS,
-    DONE,
-    HOLD
+    READY("준비"),
+    PROGRESS("진행 중"),
+    DONE("완료")
 }
 ```
 
 ### 5.3 TaskStatus
 ```java
 public enum TaskStatus {
-    TODO,
-    DOING,
-    DONE
+    TODO("할 일"),
+    DOING("진행 중"),
+    DONE("완료")
 }
 ```
 
-### 5.4 LeaveStatus
+### 5.4 LeaveType
+```java
+public enum LeaveType {
+    ANNUAL("연차", 1.0),
+    HALF_MORNING("오전반차", 0.5),
+    HALF_AFTERNOON("오후반차", 0.5)
+}
+```
+
+### 5.5 LeaveStatus
 ```java
 public enum LeaveStatus {
-    PENDING,
-    APPROVED,
-    REJECTED,
-    CANCELLED
+    PENDING("결재 대기"),
+    APPROVED("승인"),
+    REJECTED("반려"),
+    CANCELLED("취소")
 }
 ```
 
-### 5.5 OvertimeStatus
+### 5.6 OvertimeStatus
 ```java
 public enum OvertimeStatus {
-    PENDING,
-    APPROVED,
-    REJECTED,
-    CANCELLED
+    PENDING("결재 대기"),
+    APPROVED("승인"),
+    REJECTED("반려"),
+    CANCELLED("취소")
+}
+```
+
+### 5.7 AttendanceStatus
+```java
+public enum AttendanceStatus {
+    NORMAL,
+    LATE,
+    ABSENT,
+    LEAVE
+}
+```
+
+### 5.8 Priority (글로벌 공통)
+```java
+public enum Priority {
+    HIGH("높음"),
+    MEDIUM("중간"),
+    LOW("낮음")
+}
+```
+
+### 5.9 DepartmentCode
+```java
+public enum DepartmentCode {
+    DEVELOPMENT("01", "개발팀"),
+    MAINTENANCE("02", "유지보수팀"),
+    MOBILE("03", "모바일개발팀")
 }
 ```
 
@@ -367,12 +422,16 @@ public abstract class BaseEntity {
     private Long id;
 
     @CreatedDate
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
+    @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // equals/hashCode: id 기반 비교
 }
 ```
 
