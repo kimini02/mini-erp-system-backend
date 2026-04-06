@@ -3,6 +3,7 @@ package com.minierp.backend.domain.overtime.service;
 import com.minierp.backend.domain.overtime.dto.OvertimeRequestDto;
 import com.minierp.backend.domain.overtime.dto.OvertimeResponseDto;
 import com.minierp.backend.domain.overtime.entity.OvertimeRequest;
+import com.minierp.backend.domain.overtime.entity.OvertimeStatus;
 import com.minierp.backend.domain.overtime.repository.OvertimeRequestRepository;
 import com.minierp.backend.domain.user.entity.User;
 import com.minierp.backend.domain.user.repository.UserRepository;
@@ -35,6 +36,10 @@ public class OvertimeService {
         // 방어 코드: 시작 시간이 종료 시간보다 늦을 경우
         if (dto.getEndTime().isBefore(dto.getStartTime())) {
             throw new BusinessException(ErrorCode.INVALID_OVERTIME_TIME);
+        }
+
+        if (dto.getOvertimeDate().isBefore(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "오늘 이전 날짜로는 특근을 신청할 수 없습니다.");
         }
 
         if (!isWeekend(dto.getOvertimeDate())) {
@@ -97,11 +102,28 @@ public class OvertimeService {
     }
 
     /**
+     * 특근 신청 취소
+     * - 본인 PENDING 건만 취소 가능
+     */
+    @Transactional
+    public OvertimeResponseDto cancelOvertime(Long requestId, Long requesterUserId) {
+        OvertimeRequest request = getRequestOrThrow(requestId);
+        User requester = getUserById(requesterUserId);
+
+        if (!request.getRequester().getId().equals(requester.getId())) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, "본인 신청 건만 취소할 수 있습니다.");
+        }
+
+        request.cancel(requester);
+        return OvertimeResponseDto.from(request);
+    }
+
+    /**
      * 특근 내역 조회 (권한별 필터링)
      * - USER: 본인 내역만
      * - TEAM_LEADER/ADMIN: /all 엔드포인트 사용
      */
-    public List<OvertimeResponseDto> getOvertimeRequestList(Long accessorUserId) {
+    public List<OvertimeResponseDto> getOvertimeRequestList(Long accessorUserId, boolean includeCancelled) {
         User accessor = getUserById(accessorUserId);
 
         // USER가 아니면 권한 거부 (ADMIN/TEAM_LEADER는 /all 사용)
@@ -111,6 +133,7 @@ public class OvertimeService {
 
         // USER는 본인 내역만 반환
         return overtimeRequestRepository.findByRequester_Id(accessor.getId()).stream()
+                .filter(req -> includeCancelled || req.getStatus() != OvertimeStatus.CANCELLED)
                 .map(OvertimeResponseDto::from)
                 .collect(Collectors.toList());
     }
@@ -120,7 +143,7 @@ public class OvertimeService {
      * - ADMIN/TEAM_LEADER만 접근 가능
      * - 항상 전체 내역 반환
      */
-    public List<OvertimeResponseDto> getAllOvertimeRequestList(Long userId) {
+    public List<OvertimeResponseDto> getAllOvertimeRequestList(Long userId, boolean includeCancelled) {
         User user = getUserById(userId);
 
         // ADMIN/TEAM_LEADER만 접근 가능
@@ -128,8 +151,8 @@ public class OvertimeService {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "관리자 권한이 필요합니다.");
         }
 
-        // 항상 전체 내역 반환
         return overtimeRequestRepository.findAll().stream()
+                .filter(req -> includeCancelled || req.getStatus() != OvertimeStatus.CANCELLED)
                 .map(OvertimeResponseDto::from)
                 .collect(Collectors.toList());
     }

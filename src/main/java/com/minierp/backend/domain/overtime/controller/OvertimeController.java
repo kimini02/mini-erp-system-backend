@@ -62,6 +62,19 @@ public class OvertimeController {
     }
 
     /**
+     * 특근 신청 취소
+     * PATCH /api/v1/overtime/{id}/cancel
+     */
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<OvertimeResponseDto>> cancelOvertime(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        OvertimeResponseDto response = overtimeService.cancelOvertime(id, currentUserResolver.resolveUserId(authentication));
+        return ResponseEntity.ok(ApiResponse.success(response, "특근 신청이 취소되었습니다."));
+    }
+
+    /**
      * 특근 단건 조회
      */
     @GetMapping("/{id}")
@@ -78,9 +91,13 @@ public class OvertimeController {
      */
     @GetMapping("/list")
     public ResponseEntity<ApiResponse<List<OvertimeResponseDto>>> getOvertimeRequests(
+            @RequestParam(name = "includeCancelled", defaultValue = "false") boolean includeCancelled,
             Authentication authentication) {
 
-        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequestList(currentUserResolver.resolveUserId(authentication));
+        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequestList(
+                currentUserResolver.resolveUserId(authentication),
+                includeCancelled
+        );
         return ResponseEntity.ok(ApiResponse.success(response, "특근 내역 조회가 완료되었습니다."));
     }
 
@@ -92,18 +109,23 @@ public class OvertimeController {
      */
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<OvertimeResponseDto>>> getAllOvertimeRequests(
+            @RequestParam(name = "includeCancelled", defaultValue = "false") boolean includeCancelled,
             Authentication authentication) {
 
         Long userId = currentUserResolver.resolveUserId(authentication);
-        // ADMIN/TEAM_LEADER만 접근 가능하도록 필터링
-        List<OvertimeResponseDto> response = overtimeService.getAllOvertimeRequestList(userId);
+        List<OvertimeResponseDto> response = overtimeService.getAllOvertimeRequestList(userId, includeCancelled);
         return ResponseEntity.ok(ApiResponse.success(response, "전체 특근 내역 조회가 완료되었습니다."));
     }
 
     @Deprecated
     @GetMapping("/my")
-    public ResponseEntity<ApiResponse<List<OvertimeResponseDto>>> getMyOvertimeRequests(Authentication authentication) {
-        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequestList(currentUserResolver.resolveUserId(authentication));
+    public ResponseEntity<ApiResponse<List<OvertimeResponseDto>>> getMyOvertimeRequests(
+            @RequestParam(name = "includeCancelled", defaultValue = "false") boolean includeCancelled,
+            Authentication authentication) {
+        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequestList(
+                currentUserResolver.resolveUserId(authentication),
+                includeCancelled
+        );
         return ResponseEntity.ok(ApiResponse.success(response, "내 특근 신청 내역 조회가 완료되었습니다."));
     }
 }

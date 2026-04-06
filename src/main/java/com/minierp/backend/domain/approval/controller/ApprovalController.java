@@ -66,14 +66,31 @@ public class ApprovalController {
     }
 
     /**
+     * 연차 취소
+     * PATCH /api/v1/leave/{requestId}/cancel
+     */
+    @PatchMapping("/{requestId}/cancel")
+    public ResponseEntity<ApiResponse<LeaveRequestResponseDto>> cancelLeaveRequest(
+            @PathVariable Long requestId,
+            Authentication authentication) {
+
+        LeaveRequestResponseDto response = approvalService.cancelLeaveRequest(requestId, currentUserResolver.resolveUserId(authentication));
+        return ResponseEntity.ok(ApiResponse.success(response, "연차가 취소되었습니다."));
+    }
+
+    /**
      * 내 신청 내역 조회
      * GET /api/v1/leave/my
      */
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getMyLeaveRequests(
+            @RequestParam(name = "includeCancelled", defaultValue = "false") boolean includeCancelled,
             Authentication authentication) {
 
-        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequestList(currentUserResolver.resolveUserId(authentication));
+        List<LeaveRequestResponseDto> response = approvalService.getMyLeaveRequestList(
+                currentUserResolver.resolveUserId(authentication),
+                includeCancelled
+        );
         return ResponseEntity.ok(ApiResponse.success(response, "내 연차 신청 내역 조회가 완료되었습니다."));
     }
 
@@ -82,8 +99,13 @@ public class ApprovalController {
      * GET /api/v1/leave/all
      */
     @GetMapping("/all")
-    public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getAllLeaveRequests(Authentication authentication) {
-        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequestList(currentUserResolver.resolveUserId(authentication));
+    public ResponseEntity<ApiResponse<List<LeaveRequestResponseDto>>> getAllLeaveRequests(
+            @RequestParam(name = "includeCancelled", defaultValue = "false") boolean includeCancelled,
+            Authentication authentication) {
+        List<LeaveRequestResponseDto> response = approvalService.getAllLeaveRequestList(
+                currentUserResolver.resolveUserId(authentication),
+                includeCancelled
+        );
         return ResponseEntity.ok(ApiResponse.success(response, "연차 신청 전체 조회가 완료되었습니다."));
     }
 

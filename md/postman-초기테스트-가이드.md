@@ -270,7 +270,34 @@ app.holidays=2026-05-25
 - 고정 공휴일이 주말과 겹치면 대체공휴일(다음 평일)도 자동 차단됩니다.
 - 대체공휴일 테스트가 필요하면 해당 연도 날짜를 확인해 같은 방식으로 요청하세요.
 
-### 6-4) 팀장 승인 시도 (거부 기대)
+### 6-4) 반차 신청 시 종료일 자동 보정 확인
+`POST {{baseUrl}}/api/v1/leave`
+
+```json
+{
+  "appType": "HALF_MORNING",
+  "startDate": "2026-04-10",
+  "endDate": "2026-04-12",
+  "requestReason": "반차 테스트"
+}
+```
+
+기대:
+- 서버에서 종료일을 시작일(`2026-04-10`)로 보정
+- 저장된 `startDate`와 `endDate`가 동일해야 함
+
+### 6-5) 연차 신청 취소
+`PATCH {{baseUrl}}/api/v1/leave/{{leaveId}}/cancel`
+
+Headers:
+- `Authorization: Bearer {{userToken}}`
+
+기대:
+- 본인 PENDING 연차만 취소 가능
+- 승인/반려된 건은 취소 불가
+- 취소 후 상태는 `CANCELLED`
+
+### 6-6) 팀장 승인 시도 (거부 기대)
 `PATCH {{baseUrl}}/api/v1/leave/{{leaveId}}/approve`
 
 Headers:
@@ -278,7 +305,7 @@ Headers:
 
 기대: 권한 거부
 
-### 6-5) 관리소장 승인
+### 6-7) 관리소장 승인
 `PATCH {{baseUrl}}/api/v1/leave/{{leaveId}}/approve`
 
 Headers:
@@ -286,17 +313,26 @@ Headers:
 
 기대: 성공 + 승인 응답 body
 
-### 6-6) 잔여 연차 조회
+### 6-8) 잔여 연차 조회
 `GET {{baseUrl}}/api/v1/leave/balance`
 
 Headers:
 - `Authorization: Bearer {{userToken}}`
 
-### 6-7) 연차 정책 조회
+### 6-9) 연차 정책 조회
 `GET {{baseUrl}}/api/v1/leave/policy`
 
 Headers:
 - `Authorization: Bearer {{userToken}}`
+
+### 6-10) 취소 포함 연차 내역 조회
+`GET {{baseUrl}}/api/v1/leave/my?includeCancelled=true`
+
+Headers:
+- `Authorization: Bearer {{userToken}}`
+
+기대:
+- 취소 상태(`CANCELLED`) 건도 함께 조회
 
 ---
 
@@ -339,7 +375,35 @@ Headers:
 
 기대: `INVALID_OVERTIME_DATE`
 
-### 7-3) 특근 단건 조회
+### 7-3) 과거 날짜 특근 신청 거부 확인 (400)
+`POST {{baseUrl}}/api/v1/overtime`
+
+Headers:
+- `Authorization: Bearer {{userToken}}`
+- `Content-Type: application/json`
+
+```json
+{
+  "overtimeDate": "2026-03-30",
+  "startTime": "19:00:00",
+  "endTime": "21:00:00",
+  "reason": "과거날짜 테스트"
+}
+```
+
+기대: `INVALID_INPUT_VALUE`
+
+### 7-4) 특근 신청 취소 (본인 PENDING 건)
+`PATCH {{baseUrl}}/api/v1/overtime/{{overtimeId}}/cancel`
+
+Headers:
+- `Authorization: Bearer {{userToken}}`
+
+기대:
+- 본인 PENDING 특근만 취소 가능
+- 취소 후 상태 `CANCELLED`
+
+### 7-5) 특근 단건 조회
 `GET {{baseUrl}}/api/v1/overtime/{{overtimeId}}`
 
 Headers:
@@ -348,7 +412,7 @@ Headers:
 기대:
 - 본인 신청 건 조회 성공
 
-### 7-4) 특근 목록 조회 (권한별 필터링)
+### 7-6) 특근 목록 조회 (권한별 필터링)
 `GET {{baseUrl}}/api/v1/overtime/list`
 
 Headers:
@@ -358,7 +422,7 @@ Headers:
 - USER: 본인 내역만 조회
 - TEAM_LEADER/ADMIN: 전체 내역 조회
 
-### 7-5) 팀장 승인 시도
+### 7-7) 팀장 승인 시도
 `PATCH {{baseUrl}}/api/v1/overtime/{{overtimeId}}/approve`
 
 Headers:
@@ -368,7 +432,7 @@ Headers:
 - 신청자가 USER면 승인 가능
 - 신청자가 TEAM_LEADER면 권한 거부
 
-### 7-6) 관리소장 승인
+### 7-8) 관리소장 승인
 `PATCH {{baseUrl}}/api/v1/overtime/{{overtimeId}}/approve`
 
 Headers:
@@ -377,13 +441,13 @@ Headers:
 기대:
 - 성공 + 승인 응답 body
 
-### 7-7) 관리소장 신청 건 셀프 승인 정책 확인 (선택)
+### 7-9) 관리소장 신청 건 셀프 승인 정책 확인 (선택)
 관리소장 토큰으로 특근 신청 후 같은 토큰으로 승인 호출
 
 기대:
 - 정책상 본인 셀프 결재 허용
 
-### 7-8) 기존 `/my` API (호환)
+### 7-10) 기존 `/my` API (호환)
 `GET {{baseUrl}}/api/v1/overtime/my`
 
 Headers:
@@ -391,6 +455,15 @@ Headers:
 
 기대:
 - `/list`와 동일한 권한 필터 결과 반환
+
+### 7-11) 취소 포함 특근 내역 조회
+`GET {{baseUrl}}/api/v1/overtime/list?includeCancelled=true`
+
+Headers:
+- `Authorization: Bearer {{userToken}}`
+
+기대:
+- 취소 상태(`CANCELLED`) 건도 함께 조회
 
 ---
 
@@ -714,5 +787,3 @@ Headers:
 4. `400`: 평일 특근 신청(`INVALID_OVERTIME_DATE`) 또는 잘못된 입력값
 5. 비밀번호 재설정: `verificationCode`/`resetProof` 값과 만료 시간 확인
 6. 로그인 직후 권한이 반영 안 되면 서버 재시작 후 재로그인
-
----
