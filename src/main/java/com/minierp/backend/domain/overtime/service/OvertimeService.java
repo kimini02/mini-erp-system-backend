@@ -101,7 +101,7 @@ public class OvertimeService {
      * - USER: 본인 내역만
      * - TEAM_LEADER/ADMIN: /all 엔드포인트 사용
      */
-    public List<OvertimeResponseDto> getOvertimeRequests(Long accessorUserId) {
+    public List<OvertimeResponseDto> getOvertimeRequestList(Long accessorUserId) {
         User accessor = getUserById(accessorUserId);
 
         // USER가 아니면 권한 거부 (ADMIN/TEAM_LEADER는 /all 사용)
@@ -120,7 +120,7 @@ public class OvertimeService {
      * - ADMIN/TEAM_LEADER만 접근 가능
      * - 항상 전체 내역 반환
      */
-    public List<OvertimeResponseDto> getAllOvertimeRequestsForAdmin(Long userId) {
+    public List<OvertimeResponseDto> getAllOvertimeRequestList(Long userId) {
         User user = getUserById(userId);
 
         // ADMIN/TEAM_LEADER만 접근 가능

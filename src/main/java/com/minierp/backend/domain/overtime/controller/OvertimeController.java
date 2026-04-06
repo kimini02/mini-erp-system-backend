@@ -80,7 +80,7 @@ public class OvertimeController {
     public ResponseEntity<ApiResponse<List<OvertimeResponseDto>>> getOvertimeRequests(
             Authentication authentication) {
 
-        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequests(currentUserResolver.resolveUserId(authentication));
+        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequestList(currentUserResolver.resolveUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "특근 내역 조회가 완료되었습니다."));
     }
 
@@ -96,14 +96,14 @@ public class OvertimeController {
 
         Long userId = currentUserResolver.resolveUserId(authentication);
         // ADMIN/TEAM_LEADER만 접근 가능하도록 필터링
-        List<OvertimeResponseDto> response = overtimeService.getAllOvertimeRequestsForAdmin(userId);
+        List<OvertimeResponseDto> response = overtimeService.getAllOvertimeRequestList(userId);
         return ResponseEntity.ok(ApiResponse.success(response, "전체 특근 내역 조회가 완료되었습니다."));
     }
 
     @Deprecated
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<OvertimeResponseDto>>> getMyOvertimeRequests(Authentication authentication) {
-        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequests(currentUserResolver.resolveUserId(authentication));
+        List<OvertimeResponseDto> response = overtimeService.getOvertimeRequestList(currentUserResolver.resolveUserId(authentication));
         return ResponseEntity.ok(ApiResponse.success(response, "내 특근 신청 내역 조회가 완료되었습니다."));
     }
 }

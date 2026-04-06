@@ -4,7 +4,6 @@ import com.minierp.backend.domain.approval.entity.LeaveRequest;
 import com.minierp.backend.domain.approval.entity.LeaveStatus;
 import com.minierp.backend.domain.approval.entity.LeaveType;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -13,13 +12,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class LeaveRequestResponseDto {
     private Long appId;
     private Long requesterId;
     private String requesterName;
+    private String departmentCode;
+    private String userRole;
     private Long approverId;
     private String approverName;
     private LeaveType appType;
@@ -32,20 +32,22 @@ public class LeaveRequestResponseDto {
     private LocalDateTime createdAt;
 
     public static LeaveRequestResponseDto from(LeaveRequest leaveRequest) {
-        return LeaveRequestResponseDto.builder()
-                .appId(leaveRequest.getId())
-                .requesterId(leaveRequest.getRequester().getId())
-                .requesterName(leaveRequest.getRequester().getUserName())
-                .approverId(leaveRequest.getApprover() != null ? leaveRequest.getApprover().getId() : null)
-                .approverName(leaveRequest.getApprover() != null ? leaveRequest.getApprover().getUserName() : null)
-                .appType(leaveRequest.getAppType())
-                .startDate(leaveRequest.getStartDate())
-                .endDate(leaveRequest.getEndDate())
-                .usedDays(leaveRequest.getUsedDays())
-                .appStatus(leaveRequest.getAppStatus())
-                .rejectReason(leaveRequest.getRejectReason())
-                .requestReason(leaveRequest.getRequestReason())
-                .createdAt(leaveRequest.getCreatedAt())
-                .build();
+        return new LeaveRequestResponseDto(
+                leaveRequest.getId(),
+                leaveRequest.getRequester().getId(),
+                leaveRequest.getRequester().getUserName(),
+                leaveRequest.getRequester().getDepartmentCode(),
+                leaveRequest.getRequester().getUserRole().name(),
+                leaveRequest.getApprover() != null ? leaveRequest.getApprover().getId() : null,
+                leaveRequest.getApprover() != null ? leaveRequest.getApprover().getUserName() : null,
+                leaveRequest.getAppType(),
+                leaveRequest.getStartDate(),
+                leaveRequest.getEndDate(),
+                leaveRequest.getUsedDays(),
+                leaveRequest.getAppStatus(),
+                leaveRequest.getRejectReason(),
+                leaveRequest.getRequestReason(),
+                leaveRequest.getCreatedAt()
+        );
     }
 }

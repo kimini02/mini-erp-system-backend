@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.MonthDay;
@@ -87,7 +88,8 @@ public class ApprovalService {
                 .requestReason(dto.getRequestReason())
                 .build();
 
-        // usedDays 계산 로직은 LeaveRequest 생성자/메서드 내에 포함되어 있음 (주말 제외)
+        // [버그 수정] 공휴일 정보를 반영하여 usedDays 재계산
+        leaveRequest.calculateUsedDays(getObservedHolidays(dto.getStartDate().getYear()).stream().toList());
 
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
         return LeaveRequestResponseDto.from(savedRequest);
@@ -140,12 +142,11 @@ public class ApprovalService {
     /**
      * 특정 사용자의 연차 신청 내역 조회
      */
-    public List<LeaveRequestResponseDto> getMyLeaveRequests(Long requesterUserId) {
+    public List<LeaveRequestResponseDto> getMyLeaveRequestList(Long requesterUserId) {
         User user = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        return leaveRequestRepository.findAll().stream()
-                .filter(req -> req.getRequester().getId().equals(user.getId()))
+        return leaveRequestRepository.findByRequester_Id(user.getId()).stream()
                 .map(LeaveRequestResponseDto::from)
                 .collect(Collectors.toList());
     }
@@ -153,13 +154,12 @@ public class ApprovalService {
     /**
      * 모든 연차 신청 내역 조회 (관리자용)
      */
-    public List<LeaveRequestResponseDto> getAllLeaveRequests(Long requesterUserId) {
+    public List<LeaveRequestResponseDto> getAllLeaveRequestList(Long requesterUserId) {
         User requester = userRepository.findById(requesterUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (!accessPolicy.canViewAllRequests(requester.getUserRole())) {
-            return leaveRequestRepository.findAll().stream()
-                    .filter(req -> req.getRequester().getId().equals(requester.getId()))
+            return leaveRequestRepository.findByRequester_Id(requester.getId()).stream()
                     .map(LeaveRequestResponseDto::from)
                     .collect(Collectors.toList());
         }
@@ -173,10 +173,16 @@ public class ApprovalService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // [버그 수정] PENDING 상태인 연차 일수를 합산하여 잔여 연차에서 차감 (실질 잔여 연차 동기화)
+        BigDecimal pendingDays = leaveRequestRepository.findByRequester_Id(userId).stream()
+                .filter(req -> req.getAppStatus() == LeaveStatus.PENDING)
+                .map(LeaveRequest::getUsedDays)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new LeaveBalanceResponseDto(
                 user.getTotalAnnualLeave(),
                 user.getUsedAnnualLeave(),
-                user.getRemainingAnnualLeave()
+                user.getRemainingAnnualLeave().subtract(pendingDays)
         );
     }
 
