@@ -734,7 +734,7 @@ class ProjectServiceTest {
     }
 
     @SpringBootConfiguration
-    @Import({ProjectService.class, TestTransactionConfig.class})
+    @Import({ProjectService.class, com.minierp.backend.global.service.AccessPolicy.class, TestTransactionConfig.class})
     static class TestApplication {
     }
 }

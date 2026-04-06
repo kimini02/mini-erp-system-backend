@@ -65,11 +65,10 @@ class DashboardServiceTest {
     @Test
     @DisplayName("ADMIN 대시보드 진행률은 전체 업무 상태별 수와 완료율을 계산한다")
     void getDashboardStats_asAdmin_success() {
-        given(taskRepository.findAll()).willReturn(List.of(
-                createTask(1L, TaskStatus.TODO),
-                createTask(2L, TaskStatus.DOING),
-                createTask(3L, TaskStatus.DONE),
-                createTask(4L, TaskStatus.DONE)
+        given(taskRepository.countByTaskStatusGrouped()).willReturn(List.of(
+                new Object[]{TaskStatus.TODO, 1L},
+                new Object[]{TaskStatus.DOING, 1L},
+                new Object[]{TaskStatus.DONE, 2L}
         ));
 
         DashboardResponseDto response = dashboardService.getDashboardStats(1L, UserRole.ADMIN);
@@ -86,12 +85,10 @@ class DashboardServiceTest {
         Project project1 = createProject(1L, ProjectStatus.PROGRESS);
         Project project2 = createProject(2L, ProjectStatus.READY);
         given(projectRepository.findByLeaderId(10L)).willReturn(List.of(project1, project2));
-        given(taskRepository.findByProjectId(1L)).willReturn(List.of(
-                createTask(1L, TaskStatus.TODO),
-                createTask(2L, TaskStatus.DONE)
-        ));
-        given(taskRepository.findByProjectId(2L)).willReturn(List.of(
-                createTask(3L, TaskStatus.DOING)
+        given(taskRepository.countByTaskStatusGroupedForProjects(List.of(1L, 2L))).willReturn(List.of(
+                new Object[]{TaskStatus.TODO, 1L},
+                new Object[]{TaskStatus.DOING, 1L},
+                new Object[]{TaskStatus.DONE, 1L}
         ));
 
         DashboardResponseDto response = dashboardService.getDashboardStats(10L, UserRole.TEAM_LEADER);
@@ -99,15 +96,15 @@ class DashboardServiceTest {
         assertThat(response.getTodoCount()).isEqualTo(1L);
         assertThat(response.getDoingCount()).isEqualTo(1L);
         assertThat(response.getDoneCount()).isEqualTo(1L);
-        assertThat(response.getProgressRate()).isEqualTo((1 * 100.0) / 3);
+        assertThat(response.getProgressRate()).isEqualTo(33.3);
     }
 
     @Test
     @DisplayName("USER 대시보드 진행률은 본인 배정 업무 기준으로 계산한다")
     void getDashboardStats_asUser_success() {
-        given(taskRepository.findByAssigneeUserId(10L)).willReturn(List.of(
-                createTask(1L, TaskStatus.TODO),
-                createTask(2L, TaskStatus.DONE)
+        given(taskRepository.countByTaskStatusGroupedForUser(10L)).willReturn(List.of(
+                new Object[]{TaskStatus.TODO, 1L},
+                new Object[]{TaskStatus.DONE, 1L}
         ));
 
         DashboardResponseDto response = dashboardService.getDashboardStats(10L, UserRole.USER);
@@ -276,7 +273,7 @@ class DashboardServiceTest {
     }
 
     @SpringBootConfiguration
-    @Import({DashboardService.class, TestTransactionConfig.class})
+    @Import({DashboardService.class, com.minierp.backend.global.service.AccessPolicy.class, TestTransactionConfig.class})
     static class TestApplication {
     }
 }
