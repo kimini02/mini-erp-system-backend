@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 대시보드 REST 컨트롤러
+ * - 비즈니스 로직 없이 Service에 위임, 역할별 접근 제어는 Service에서 처리
+ */
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor

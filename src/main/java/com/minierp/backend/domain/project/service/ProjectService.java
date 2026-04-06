@@ -28,14 +28,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * 프로젝트 서비스
- * - 프로젝트 CRUD 및 멤버 배정/해제
- * - 역할별 접근 제어: ADMIN(전체), TEAM_LEADER(담당 프로젝트만), USER(배정된 프로젝트만)
+ * - 역할별 접근 제어: ADMIN(전체), TEAM_LEADER(담당 프로젝트), USER(배정된 프로젝트)
+ * - 멤버 해제 시 TaskAssignment도 함께 삭제 (데이터 정합성)
+ * - getProjects(): GROUP BY 집계 쿼리로 1+3N → 3개 쿼리로 최적화
  */
 @Service
 @RequiredArgsConstructor
@@ -49,7 +52,6 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final AccessPolicy accessPolicy;
 
-    // 프로젝트 생성: ADMIN만 가능, 담당 리더는 TEAM_LEADER 또는 ADMIN 역할만 배정 가능
     @Transactional
     public ProjectResponseDto createProject(ProjectCreateRequestDto request, UserRole currentUserRole) {
         validateAdminRole(currentUserRole);
@@ -72,30 +74,59 @@ public class ProjectService {
         return ProjectResponseDto.from(savedProject);
     }
 
-    // 프로젝트 목록 조회: ADMIN=전체, TEAM_LEADER=담당 프로젝트, USER=배정된 프로젝트
+    // 목록 조회에 필요한 인원 수와 진행 현황을 집계 쿼리로 계산한다.
     public List<ProjectResponseDto> getProjects(Long currentUserId, UserRole currentUserRole) {
+        List<Project> projects;
+
         if (currentUserRole == UserRole.ADMIN) {
-            return projectRepository.findAll().stream()
-                    .map(this::toProjectResponseDto)
-                    .toList();
-        }
+            projects = projectRepository.findAll();
+        } else {
+            validateCurrentUserId(currentUserId);
 
-        validateCurrentUserId(currentUserId);
-
-        if (currentUserRole == UserRole.TEAM_LEADER) {
-            List<Project> leaderProjects = projectRepository.findByLeaderId(currentUserId);
-            if (leaderProjects.isEmpty()) {
-                throw new BusinessException(ErrorCode.NO_ASSIGNED_PROJECT);
+            if (currentUserRole == UserRole.TEAM_LEADER) {
+                projects = projectRepository.findByLeaderId(currentUserId);
+                if (projects.isEmpty()) {
+                    throw new BusinessException(ErrorCode.NO_ASSIGNED_PROJECT);
+                }
+            } else {
+                projects = projectMemberRepository.findByUserId(currentUserId).stream()
+                        .map(ProjectMember::getProject)
+                        .distinct()
+                        .toList();
             }
-            return leaderProjects.stream()
-                    .map(this::toProjectResponseDto)
-                    .toList();
         }
 
-        return projectMemberRepository.findByUserId(currentUserId).stream()
-                .map(ProjectMember::getProject)
-                .distinct()
-                .map(this::toProjectResponseDto)
+        if (projects.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> projectIds = projects.stream().map(Project::getId).toList();
+
+        Map<Long, Long> memberCountMap = new HashMap<>();
+        for (Object[] row : projectMemberRepository.countMembersByProjectIds(projectIds)) {
+            memberCountMap.put((Long) row[0], (Long) row[1]);
+        }
+
+        Map<Long, Long> totalTaskMap = new HashMap<>();
+        Map<Long, Long> doneTaskMap = new HashMap<>();
+        for (Object[] row : taskRepository.countTaskStatusByProjectIds(projectIds)) {
+            Long projectId = (Long) row[0];
+            TaskStatus status = (TaskStatus) row[1];
+            Long count = (Long) row[2];
+            totalTaskMap.merge(projectId, count, Long::sum);
+            if (status == TaskStatus.DONE) {
+                doneTaskMap.put(projectId, count);
+            }
+        }
+
+        return projects.stream()
+                .map(project -> {
+                    long memberCount = memberCountMap.getOrDefault(project.getId(), 0L);
+                    long totalTasks = totalTaskMap.getOrDefault(project.getId(), 0L);
+                    long doneTasks = doneTaskMap.getOrDefault(project.getId(), 0L);
+                    int progressRate = totalTasks == 0 ? 0 : (int) ((doneTasks * 100) / totalTasks);
+                    return ProjectResponseDto.from(project, memberCount, totalTasks, progressRate);
+                })
                 .toList();
     }
 
@@ -156,7 +187,7 @@ public class ProjectService {
         return ProjectMemberResponseDto.from(savedProjectMember);
     }
 
-    // 멤버 제거 시 해당 유저의 Task 배정(TaskAssignment)도 함께 삭제
+    // 멤버 제거 시 업무 기록은 유지하고 배정 정보만 함께 정리한다.
     @Transactional
     public void removeMember(Long projectId, Long userId, Long currentUserId, UserRole currentUserRole) {
         validateAdminOrLeaderRole(currentUserRole);
@@ -188,7 +219,6 @@ public class ProjectService {
                 .toList();
     }
 
-    // 배정 가능 멤버 조회: 전체 USER 중 해당 프로젝트에 아직 배정되지 않은 유저만 반환
     public List<AvailableMemberResponseDto> getAvailableMembers(Long projectId, Long currentUserId, UserRole currentUserRole) {
         validateAdminOrLeaderRole(currentUserRole);
         validateProjectLeader(projectId, currentUserId, currentUserRole);
@@ -206,7 +236,6 @@ public class ProjectService {
                 .toList();
     }
 
-    // Task에 배정 가능한 멤버 조회: 이미 프로젝트에 배정된 USER 역할 멤버만 반환
     public List<AssignableMemberDto> getAssignableMembers(Long projectId, Long currentUserId, UserRole currentUserRole) {
         validateAdminOrLeaderRole(currentUserRole);
         if (currentUserRole.isTeamLeader()) {

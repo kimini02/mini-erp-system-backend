@@ -5,6 +5,9 @@ import com.minierp.backend.global.exception.BusinessException;
 import com.minierp.backend.global.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 
+/**
+ * 접근 권한 정책 — 역할 기반 접근 제어(RBAC)를 공통 컴포넌트로 추출
+ */
 @Component
 public class AccessPolicy {
 

@@ -29,9 +29,9 @@ import java.util.Set;
 
 /**
  * 업무(Task) 서비스
- * - Task 생성/조회/상태변경 및 담당자(TaskAssignment) 관리
- * - 역할별 접근 제어: ADMIN(전체), TEAM_LEADER(담당 프로젝트만), USER(배정된 Task만)
- * - Task 상태 변경 시 프로젝트 상태도 자동 갱신
+ * - 역할별 접근 제어: ADMIN(전체), TEAM_LEADER(담당 프로젝트), USER(본인 배정 Task)
+ * - Task 상태 변경 시 프로젝트 상태도 자동 갱신 (READY→PROGRESS→DONE)
+ * - N+1 최적화: @EntityGraph로 담당자를 1개 쿼리로 즉시 로딩
  */
 @Service
 @RequiredArgsConstructor
@@ -45,7 +45,6 @@ public class TaskService {
     private final UserRepository userRepository;
     private final AccessPolicy accessPolicy;
 
-    // Task 생성: ADMIN 또는 담당 팀장만 가능, 배정자는 해당 프로젝트 멤버여야 함
     @Transactional
     public TaskResponseDto createTask(TaskCreateRequestDto request, Long currentUserId, UserRole currentUserRole) {
         validateAdminOrLeaderRole(currentUserRole);
@@ -81,10 +80,10 @@ public class TaskService {
         return TaskResponseDto.from(savedTask);
     }
 
-    // Task 목록 조회: ADMIN=전체, TEAM_LEADER=담당 프로젝트의 Task, USER=본인 배정 Task
+    // 담당자 정보를 함께 조회해 목록 조회 시 추가 쿼리를 줄인다.
     public List<TaskResponseDto> getTasks(Long currentUserId, UserRole currentUserRole) {
         if (currentUserRole == UserRole.ADMIN) {
-            return taskRepository.findAll().stream()
+            return taskRepository.findAllWithAssignees().stream()
                     .map(TaskResponseDto::from)
                     .toList();
         }
@@ -96,13 +95,15 @@ public class TaskService {
             if (leaderProjects.isEmpty()) {
                 throw new BusinessException(ErrorCode.NO_ASSIGNED_PROJECT);
             }
-            return leaderProjects.stream()
-                    .flatMap(project -> taskRepository.findByProjectId(project.getId()).stream())
+            List<Long> projectIds = leaderProjects.stream()
+                    .map(Project::getId)
+                    .toList();
+            return taskRepository.findByProjectIdInWithAssignees(projectIds).stream()
                     .map(TaskResponseDto::from)
                     .toList();
         }
 
-        return taskRepository.findByAssigneeUserId(currentUserId).stream()
+        return taskRepository.findByAssigneeUserIdWithAssignees(currentUserId).stream()
                 .map(TaskResponseDto::from)
                 .toList();
     }
@@ -136,7 +137,7 @@ public class TaskService {
         return TaskResponseDto.from(task);
     }
 
-    // Task 상태 변경 + 프로젝트 상태 자동 갱신 (READY→PROGRESS→DONE)
+    // 업무 상태 변경 결과를 프로젝트 상태에도 반영한다.
     @Transactional
     public TaskResponseDto changeTaskStatus(
             Long taskId,
@@ -155,7 +156,6 @@ public class TaskService {
             task.changeStatus(request.getTaskStatus());
         }
 
-        // Task 상태가 바뀌면 프로젝트 상태도 자동으로 갱신
         task.getProject().updateStatusByTasks();
         return TaskResponseDto.from(task);
     }

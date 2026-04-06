@@ -187,14 +187,14 @@ class TaskServiceTest {
     void getTasks_asAdmin_returnsAllTasks() {
         Task firstTask = createTask(1L, 1L, TaskStatus.TODO);
         Task secondTask = createTask(2L, 1L, TaskStatus.DOING);
-        given(taskRepository.findAll()).willReturn(List.of(firstTask, secondTask));
+        given(taskRepository.findAllWithAssignees()).willReturn(List.of(firstTask, secondTask));
 
         List<TaskResponseDto> responses = taskService.getTasks(99L, UserRole.ADMIN);
 
         assertThat(responses).hasSize(2);
         assertThat(responses).extracting(TaskResponseDto::getId)
                 .containsExactly(1L, 2L);
-        verify(taskRepository, never()).findByAssigneeUserId(any());
+        verify(taskRepository, never()).findByAssigneeUserIdWithAssignees(any());
     }
 
     @Test
@@ -203,7 +203,7 @@ class TaskServiceTest {
         Long currentUserId = 10L;
         Task task = createTask(1L, 1L, TaskStatus.DOING);
         TaskAssignment.create(task, createUser(currentUserId));
-        given(taskRepository.findByAssigneeUserId(currentUserId)).willReturn(List.of(task));
+        given(taskRepository.findByAssigneeUserIdWithAssignees(currentUserId)).willReturn(List.of(task));
 
         List<TaskResponseDto> responses = taskService.getTasks(currentUserId, UserRole.USER);
 
@@ -221,7 +221,7 @@ class TaskServiceTest {
         ReflectionTestUtils.setField(task.getProject(), "leader", createUser(leaderId, UserRole.TEAM_LEADER));
 
         given(projectRepository.findByLeaderId(leaderId)).willReturn(List.of(project));
-        given(taskRepository.findByProjectId(1L)).willReturn(List.of(task));
+        given(taskRepository.findByProjectIdInWithAssignees(List.of(1L))).willReturn(List.of(task));
 
         List<TaskResponseDto> responses = taskService.getTasks(leaderId, UserRole.TEAM_LEADER);
 
@@ -702,7 +702,7 @@ class TaskServiceTest {
     }
 
     @SpringBootConfiguration
-    @Import({TaskService.class, TestTransactionConfig.class})
+    @Import({TaskService.class, com.minierp.backend.global.service.AccessPolicy.class, TestTransactionConfig.class})
     static class TestApplication {
     }
 }

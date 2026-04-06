@@ -8,7 +8,6 @@ import com.minierp.backend.domain.dashboard.dto.DashboardResponseDto;
 import com.minierp.backend.domain.project.entity.Project;
 import com.minierp.backend.domain.project.entity.ProjectStatus;
 import com.minierp.backend.domain.project.repository.ProjectRepository;
-import com.minierp.backend.domain.task.entity.Task;
 import com.minierp.backend.domain.task.entity.TaskStatus;
 import com.minierp.backend.domain.task.repository.TaskRepository;
 import com.minierp.backend.domain.user.entity.UserRole;
@@ -26,14 +25,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-import static java.util.stream.Collectors.counting;
-import static java.util.stream.Collectors.groupingBy;
 
 /**
  * 대시보드 서비스
- * - Task 상태별 통계 (TODO/DOING/DONE 개수 + 진행률)
- * - 관리자 요약: ADMIN=전체 통계, TEAM_LEADER=담당 프로젝트 기준 통계
- * - 대시보드 프로젝트 목록: 진행 중(PROGRESS) 우선, 마감일순 상위 5개
+ * - 역할별 데이터 범위: ADMIN(전체), TEAM_LEADER(담당 프로젝트), USER(본인 배정 Task)
+ * - GROUP BY 집계 쿼리로 DB에서 상태별 개수만 반환 (findAll+stream 대비 메모리 최적화)
  */
 @Service
 @RequiredArgsConstructor
@@ -46,37 +42,35 @@ public class DashboardService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final AccessPolicy accessPolicy;
 
+    // GROUP BY 집계 쿼리로 상태별 개수만 조회 (N+1 방지)
     public DashboardResponseDto getDashboardStats(Long currentUserId, UserRole currentUserRole) {
-        List<Task> tasks;
-
         if (currentUserRole == null) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
+        List<Object[]> statusCounts;
+
         if (currentUserRole.isTopManager()) {
-            tasks = taskRepository.findAll();
+            statusCounts = taskRepository.countByTaskStatusGrouped();
         } else if (currentUserRole.isTeamLeader()) {
             List<Long> projectIds = projectRepository.findByLeaderId(currentUserId).stream()
                     .map(Project::getId)
                     .toList();
-            tasks = projectIds.stream()
-                    .flatMap(projectId -> taskRepository.findByProjectId(projectId).stream())
-                    .toList();
+            statusCounts = projectIds.isEmpty()
+                    ? List.of()
+                    : taskRepository.countByTaskStatusGroupedForProjects(projectIds);
         } else {
-            tasks = taskRepository.findByAssigneeUserId(currentUserId);
+            statusCounts = taskRepository.countByTaskStatusGroupedForUser(currentUserId);
         }
 
-        Map<TaskStatus, Long> taskStatusStats = tasks.stream()
-                .collect(groupingBy(
-                        Task::getTaskStatus,
-                        () -> new EnumMap<>(TaskStatus.class),
-                        counting()
-                ));
+        Map<TaskStatus, Long> taskStatusStats = new EnumMap<>(TaskStatus.class);
+        for (Object[] row : statusCounts) {
+            taskStatusStats.put((TaskStatus) row[0], (Long) row[1]);
+        }
 
         return DashboardResponseDto.of(taskStatusStats);
     }
 
-    // 관리자 요약: ADMIN=전체 사용자/프로젝트/Task 통계, TEAM_LEADER=담당 프로젝트 기준
     public AdminDashboardResponseDto getAdminSummary(Long currentUserId, UserRole currentUserRole) {
         accessPolicy.requireAdminOrLeader(currentUserRole);
 
@@ -123,7 +117,7 @@ public class DashboardService {
         );
     }
 
-    // 대시보드 프로젝트 카드: 진행 중 우선 → 마감일순 정렬, 상위 5개 + 진척률 포함
+    // 진행 중 우선 → 마감일순 정렬, 상위 5개
     public List<DashboardProjectDto> getDashboardProjects(Long currentUserId, UserRole currentUserRole) {
         accessPolicy.requireAdminOrLeader(currentUserRole);
 

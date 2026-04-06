@@ -9,6 +9,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * 전역 예외 처리기 — BusinessException + ErrorCode 조합으로 일관된 응답 포맷 제공
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

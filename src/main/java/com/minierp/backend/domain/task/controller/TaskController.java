@@ -30,6 +30,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 업무(Task) REST 컨트롤러
+ * - 비즈니스 로직 없이 Service에 위임만 수행
+ * - @Valid로 요청 DTO 유효성 검증, ResponseEntity<ApiResponse<T>>로 응답 통일
+ */
 @RestController
 @RequestMapping("/api/v1/tasks")
 @RequiredArgsConstructor
